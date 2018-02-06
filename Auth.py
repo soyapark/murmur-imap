@@ -22,18 +22,18 @@ class Auth():
         ## Connect, login and select the INBOX
         self.server = IMAPClient(self.HOST)
 
-        options = {}
-        options['generate_oauth2_token'] = True
-        options['client_id'] = self.client_id
-        options['client_secret'] = self.client_secret
-
-        oauth = Oauth2()
-
         response = {}
         OAUTH = False
         DEBUG_AUTH = True
 
         if OAUTH:
+            options = {}
+            options['generate_oauth2_token'] = True
+            options['client_id'] = self.client_id
+            options['client_secret'] = self.client_secret
+
+            oauth = Oauth2()
+
             if DEBUG_AUTH:
                 response = oauth.generate_oauth2_token(options)
                 options['refresh_token'] = response['refresh_token']
