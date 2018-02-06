@@ -47,6 +47,8 @@ class Monitor():
         # self.QUEUE_MAX = 2
         self.QUEUE = ''
         self.ready = ready
+        self.emails = [] # list to store old email IDs
+        self.login = True
 
     def process_email(self, mail_, download_, log_):
         """Email processing to be done here. mail_ is the Mail object passed to this
@@ -98,16 +100,17 @@ class Monitor():
     def fetchLatestEmailID(self):
         # Retrieve and process all unread messages. Should errors occur due
         # to loss of connection, attempt restablishing connection 
-        result = self.search()
+        print "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1)
+        result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
 
         response = self.imap.fetch(result, ['FLAGS'])
-        return max(k for k, v in response.iteritems()) if response else self.getLatestEmailID()
+        return max(msgid for msgid, v in response.iteritems()) if response else self.getLatestEmailID()
 
     def getLatestEmailID(self):
         return self.NEWEST_EMAIL_ID
 
     def setLatestEmailID(self, inID):
-        print "Set Last email is " + str(inID)
+        #print "Set Last email is " + str(inID)
         self.NEWEST_EMAIL_ID = inID
         
     # Digest and give notifation only for N emails 
@@ -118,8 +121,11 @@ class Monitor():
         incoming_emails = "UID %s:*" % str(self.getLatestEmailID() + 1)
         m = Mmail(self.imap, incoming_emails)
         self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
-        log.info('MURMUR: the queue has been successfully installed')
+        log.info('MURMUR: %s the queue has been successfully installed' % (self.USERNAME))
     
+    def logout(self):
+        self.login = False
+
     def monitor(self):
         log.info('... script started')
         while True:
@@ -200,13 +206,10 @@ class Monitor():
             while True:
                 # <--- Start of IMAP server connection loop
                 
-                if not self.selectFolder('INBOX'):
+                if not self.selectFolder(folder):
                     break
 
                 self.setLatestEmailID(self.fetchLatestEmailID())
-
-                if not self.selectFolder(folder):
-                    break
 
                 # # then fire the ready event
                 print "ready"
@@ -215,6 +218,11 @@ class Monitor():
                 while True:
                     # <--- Start of mail monitoring loop
                     
+                    if not self.login:
+                        log.info('MURMUR: Logging out')
+                        self.imap.logout()
+                        return 
+
                     # After all unread emails are cleared on initial login, start
                     # monitoring the folder for new email arrivals and process 
                     # accordingly. Use the IDLE check combined with occassional NOOP
@@ -237,6 +245,7 @@ class Monitor():
                             # Increment newest email ID
                             self.setLatestEmailID( newID )
 
+                            # print "UID %s:*" % str(self.getLatestEmailID() + 1)
                             result = self.search( "UID %s:*" % str(self.getLatestEmailID() + 1) )
                             # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
                             response = self.imap.fetch(result, ['FLAGS'])
