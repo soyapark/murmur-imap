@@ -10,6 +10,7 @@ import email
 from email import message
 import sys 
 from threading import Event, Thread
+from Log import * 
 
 class Auth(): 
     #context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
@@ -48,7 +49,7 @@ class Auth():
             try:
                 self.server.login(self.USERNAME, self.PASSWORD)
             except Exception:
-                print "Auth fail", self.USERNAME, self.HOST
+                writeLog("critical", "Auth fail %s" % (self.USERNAME))
                 self.server = False
 
     def getServer(self):

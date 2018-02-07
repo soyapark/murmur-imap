@@ -3,7 +3,7 @@ from SMTP import *
 
 import os.path as path
 import traceback
-import ConfigParser
+# import ConfigParser
 import email
 from time import sleep
 from datetime import datetime, time
@@ -87,7 +87,7 @@ class Monitor():
         return self.NEWEST_EMAIL_ID
 
     def setLatestEmailID(self, inID):
-        print "Set Last email is " + str(inID)
+        print ("Set Last email is " + str(inID))
         self.NEWEST_EMAIL_ID = inID
         
     # Digest and give notifation only for N emails 
@@ -191,7 +191,7 @@ class Monitor():
                 self.setLatestEmailID(self.fetchLatestEmailID())
 
                 # # then fire the ready event
-                print "ready"
+                print ("ready")
                 # self.ready.put('done')
                         
                 while True:
@@ -214,7 +214,7 @@ class Monitor():
                     if result:
                         self.imap.idle_done()
 
-                        print "MURMUR: a new email has arrived || a user checks an email"
+                        writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
                         newID = self.fetchLatestEmailID()
 
                         # new mail

@@ -15,7 +15,7 @@ class EmailQueue():
 
     def checkFull(self):
         if self.full_when(self.messages):
-            print "Murmur: EmailQueue is full"
+            writeLog("info", "Murmur: EmailQueue is full") 
             # self.imap.move(self.messagesID, 'INBOX')
 
             ##TODO: more flexible search criteria

@@ -86,16 +86,16 @@ class Oauth2():
 
     # self.setExpiredTime( datetime.now() + timedelta(seconds=response['expires_in'] - 5) )
 
-    print 'Access Token: %s' % response['access_token']
-    print 'Access Token Expiration Seconds: %s' % response['expires_in']
+    print ('Access Token: %s' % response['access_token'])
+    print ('Access Token Expiration Seconds: %s' % response['expires_in'])
 
     return response
 
   def generate_oauth2_token(self, options):
-    print options
-    print 'To authorize token, visit this url and copy verification code below:'
+    print (options)
+    print ('To authorize token, visit this url and copy verification code below:')
     # TODO press any key to route to the website
-    print '  %s' % self.GeneratePermissionUrl(options['client_id'])
+    print ('  %s' % self.GeneratePermissionUrl(options['client_id']))
     # webbrowser.open(self.GeneratePermissionUrl(options.client_id, options.scope), new=2)
 
     authorization_code = raw_input('Enter verification code: ')
@@ -105,9 +105,9 @@ class Oauth2():
     REFRESH_TOKEN = response['refresh_token']
     self.setExpiredTime( datetime.now() + timedelta(seconds=response['expires_in'] - 5) )
 
-    print 'Refresh Token: %s' % response['refresh_token']
-    print 'Access Token: %s' % response['access_token']
-    print 'Access Token Expiration Seconds: %s' % response['expires_in']
+    print ('Refresh Token: %s' % response['refresh_token'])
+    print ('Access Token: %s' % response['access_token'])
+    print ('Access Token Expiration Seconds: %s' % response['expires_in'])
 
     return response
 

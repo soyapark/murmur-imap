@@ -3,7 +3,10 @@ from Auth import Auth
 from threading import Event, Thread
 from Monitor import *
 import sys
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import contextlib
 from Log import *
 
@@ -41,8 +44,8 @@ monitors = {} # uid: monitor_instance
 def stream_handler(message):
     # print(message["event"]) # put
     # print(message["path"]) # /-K7yGTTEp7O549EzTYtI
-    print "new Message"
-    print message
+    print ("new Message")
+    print (message)
 
     if message["data"] == None or "data" not in message:
         return
@@ -81,24 +84,24 @@ def stream_handler(message):
             # send message to user it's ready to play with
 
         elif message["data"]["type"] == "cmd":
-            print "New command", message["data"]["content"]
+            print ("New command", message["data"]["content"])
             features.clear()
             
             try:
                 # exec( message["data"]["content"])
                 with stdoutIO() as s:
                     exec( message["data"]["content"] )
-                print "out:", s.getvalue()
-                print features
+                # print "out:", s.getvalue()
+                # print features
 
                 if 'logout' in features:
                     #kill thread
-                    print "Request for logout"
+                    writeLog("info","Request for logout")
                     monitors[message["data"]["uid"]].logout()
                     data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
 
                 elif 'queue' in features:
-                    print "Request for queue"
+                    writeLog("info", "Request for queue")
                     monitors[message["data"]["uid"]].queue( features['queue'][0], features['queue'][1])
                     data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
 
@@ -109,18 +112,28 @@ def stream_handler(message):
 
                 
             except Exception as e:
-                print "Execution error ", str(e)
+                writeLog( "Execution error %s" % (str(e)) )
                 # Send this error msg to the user
                 data = {"type": "error", "content": str(e)}
                 db.child("messages").child(message["data"]["uid"]).push(data)
 
 
-def create_stream():
-    try:
-        writeLog("info", "Start stream")
-        my_stream = db.child("users").stream(stream_handler)
-    except Exception as e:
-        writeLog("critical", "Stream expire, Restart stream %s" % (e))
-        create_stream()
+writeLog("info", "Start stream")
+my_stream = db.child("users").stream(stream_handler)
 
-create_stream()
+import sched, time
+s = sched.scheduler(time.time, time.sleep)
+
+def do_something(sc): 
+    global my_stream
+    writeLog("info", "Restart stream")
+    my_stream.close()
+    firebase = pyrebase.initialize_app(config)
+    db = firebase.database()
+
+    my_stream = db.child("users").stream(stream_handler)
+
+    s.enter(600, 1, do_something, (sc,))
+
+s.enter(600, 1, do_something, (s,))
+s.run()

@@ -1,4 +1,6 @@
 *.pyc
+test/
+__pycache__/
 Account.py
 MultiUser.py
 Test.py
