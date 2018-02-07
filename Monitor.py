@@ -206,6 +206,8 @@ class Monitor():
             while True:
                 # <--- Start of IMAP server connection loop
                 
+                
+
                 if not self.selectFolder(folder):
                     break
 

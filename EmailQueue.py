@@ -16,7 +16,7 @@ class EmailQueue():
     def checkFull(self):
         if self.full_when(self.messages):
             print "Murmur: EmailQueue is full"
-            self.imap.move(self.messagesID, 'INBOX')
+            # self.imap.move(self.messagesID, 'INBOX')
 
             ##TODO: more flexible search criteria
             incoming_emails = "UID %s:*" % str( self.messagesID[-1] )
@@ -24,5 +24,5 @@ class EmailQueue():
             self.messagesID = []
             
             
-            send(destination='soyapark2535@gmail.com', subject='Murmur: Emailqueue is full')
+            send(destination='soyapark2535@gmail.com', subject='Murmur: Your email queue is full')
             
