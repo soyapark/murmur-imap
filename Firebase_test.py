@@ -1,10 +1,11 @@
 import pyrebase
 from Auth import Auth
 from threading import Event, Thread
-from Monitor import Monitor
+from Monitor import *
 import sys
 import StringIO
 import contextlib
+from Log import *
 
 config = {
   "apiKey": "###",
@@ -114,4 +115,12 @@ def stream_handler(message):
                 db.child("messages").child(message["data"]["uid"]).push(data)
 
 
-my_stream = db.child("users").stream(stream_handler)
+def create_stream():
+    try:
+        writeLog("info", "Start stream")
+        my_stream = db.child("users").stream(stream_handler)
+    except Exception as e:
+        writeLog("critical", "Stream expire, Restart stream %s" % (e))
+        create_stream()
+
+create_stream()

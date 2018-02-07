@@ -2,10 +2,7 @@ from imapclient import IMAPClient
 from SMTP import * 
 
 import os.path as path
-import sys
 import traceback
-import logging
-from logging.handlers import RotatingFileHandler
 import ConfigParser
 import email
 from time import sleep
@@ -13,28 +10,7 @@ from datetime import datetime, time
 
 from EmailQueue import * 
 from Mmail import * 
-
-# Setup the log handlers to stdout and file.
-log = logging.getLogger('imap_monitor')
-log.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s | %(name)s | %(levelname)s | %(message)s'
-    )
-handler_stdout = logging.StreamHandler(sys.stdout)
-handler_stdout.setLevel(logging.DEBUG)
-handler_stdout.setFormatter(formatter)
-log.addHandler(handler_stdout)
-handler_file = RotatingFileHandler(
-	'imap_monitor.log',
-	mode='a',
-	maxBytes=1048576,
-	backupCount=9,
-	encoding='UTF-8',
-	delay=True
-	)
-handler_file.setLevel(logging.DEBUG)
-handler_file.setFormatter(formatter)
-log.addHandler(handler_file)
+from Log import *
 
 # TODO: Support SMTP log handling for CRITICAL errors.
 
@@ -50,12 +26,7 @@ class Monitor():
         self.emails = [] # list to store old email IDs
         self.login = True
 
-    def writeLog(self, type, content):
-        if type == "info":
-            log.info("%s ; %s" % (content, self.USERNAME))
-
-        else:
-            log.critical("%s ; %s" % (content, self.USERNAME))
+    
 
     def process_email(self, mail_, download_, log_):
         """Email processing to be done here. mail_ is the Mail object passed to this
@@ -68,7 +39,7 @@ class Monitor():
 
     def createFolder(self, inInboxName):
         if not self.imap.folder_exists(inInboxName):
-            self.writeLog('info', '%s Create folder name %s' % (self.imap.create_folder(inInboxName), inInboxName))
+            writeLog('info', '%s Create folder name %s' % (self.imap.create_folder(inInboxName), inInboxName))
             #print('%s folder not exist! TERMINATE' % INBOX_NAME)
             #sys.exit()
 
@@ -78,7 +49,7 @@ class Monitor():
         try:
             self.createFolder(inFolder)
             self.imap.select_folder(inFolder)
-            self.writeLog('info', 'folder selected')
+            writeLog('info', 'folder selected')
         except Exception:
             # Halt script when folder selection fails
             etype, evalue = sys.exc_info()[:2]
@@ -86,7 +57,7 @@ class Monitor():
             logstr = 'failed to select IMAP folder - '
             for each in estr:
                 logstr += '{0}; '.format(each.strip('\n'))
-            self.writeLog('critical', logstr)
+            writeLog('critical', logstr)
             return False
 
         return True        
@@ -95,7 +66,7 @@ class Monitor():
         try:
             result = self.imap.search(creteria) if creteria != None else self.imap.search()
         except Exception:
-            self.writeLog('critical', 'Exception at SEARCH: ' + str(creteria))
+            writeLog('critical', 'Exception at SEARCH: ' + str(creteria))
             return
         # log.info('creteria : {0} / search result - {1}({2})'.format(
         #     creteria, len(result), result
@@ -127,13 +98,13 @@ class Monitor():
         incoming_emails = "UID %s:*" % str(self.getLatestEmailID() + 1)
         m = Mmail(self.imap, incoming_emails)
         self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
-        self.writeLog('info', 'MURMUR: %s the queue has been successfully installed' % (self.USERNAME))
+        writeLog('info', 'MURMUR: %s the queue has been successfully installed' % (self.USERNAME))
     
     def logout(self):
         self.login = False
 
     def monitor(self):
-        self.writeLog('info', '... script started')
+        writeLog('info', '... script started')
         while True:
             # <--- Start of configuration section
             
@@ -227,7 +198,7 @@ class Monitor():
                     # <--- Start of mail monitoring loop
                     
                     if not self.login:
-                        self.writeLog('info', 'MURMUR: Logging out')
+                        writeLog('info', 'MURMUR: Logging out')
                         self.imap.logout()
                         return 
 
@@ -248,7 +219,7 @@ class Monitor():
 
                         # new mail
                         if self.getLatestEmailID() != newID: 
-                            self.writeLog('info', 'MURMUR: a new email has arrived')
+                            writeLog('info', 'MURMUR: a new email has arrived')
 
                             # Increment newest email ID
                             self.setLatestEmailID( newID )
@@ -270,7 +241,7 @@ class Monitor():
                             # self.QUEUE_CNT = self.QUEUE_CNT % self.QUEUE_MAX
 
                         else:
-                            self.writeLog('info', 'MURMUR: user checks email')
+                            writeLog('info', 'MURMUR: user checks email')
                             result = self.search('UNSEEN')
 
                         # for each in result:
@@ -292,10 +263,10 @@ class Monitor():
                         try:
                             self.imap.idle_done()
                             self.imap.noop()
-                            self.writeLog('info', 'no new messages seen')
+                            writeLog('info', 'no new messages seen')
                         except Exception as e:
                             # Halt script when folder selection fails
-                            self.writeLog('critical', "No new message reset connection %s" % (str(e)))
+                            writeLog('critical', "No new message reset connection %s" % (str(e)))
                             break
                     # End of mail monitoring loop --->
                     continue
@@ -305,4 +276,4 @@ class Monitor():
                 
             # End of configuration section --->
             break
-        self.writeLog('info', 'script stopped ...')
+        writeLog('info', 'script stopped ...')
