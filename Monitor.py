@@ -39,17 +39,17 @@ class Monitor():
 
     def createFolder(self, inInboxName):
         if not self.imap.folder_exists(inInboxName):
-            writeLog('info', '%s Create folder name %s' % (self.imap.create_folder(inInboxName), inInboxName))
+            writeLog('info', '%s Create folder name %s' % (self.imap.create_folder(inInboxName), inInboxName), self.USERNAME)
             #print('%s folder not exist! TERMINATE' % INBOX_NAME)
             #sys.exit()
 
     def selectFolder(self, inFolder):
         # Select IMAP folder to monitor
-        log.info('selecting IMAP folder - {0}'.format(inFolder))
+        writeLog('info', 'selecting IMAP folder - {0}'.format(inFolder), self.USERNAME)
         try:
             self.createFolder(inFolder)
             self.imap.select_folder(inFolder)
-            writeLog('info', 'folder selected')
+            writeLog('info', 'folder selected', self.USERNAME)
         except Exception:
             # Halt script when folder selection fails
             etype, evalue = sys.exc_info()[:2]
@@ -57,7 +57,7 @@ class Monitor():
             logstr = 'failed to select IMAP folder - '
             for each in estr:
                 logstr += '{0}; '.format(each.strip('\n'))
-            writeLog('critical', logstr)
+            writeLog('critical', logstr, self.USERNAME)
             return False
 
         return True        
@@ -66,7 +66,7 @@ class Monitor():
         try:
             result = self.imap.search(creteria) if creteria != None else self.imap.search()
         except Exception:
-            writeLog('critical', 'Exception at SEARCH: ' + str(creteria))
+            writeLog('critical', 'Exception at SEARCH: ' + str(creteria), self.USERNAME)
             return
         # log.info('creteria : {0} / search result - {1}({2})'.format(
         #     creteria, len(result), result
@@ -104,7 +104,7 @@ class Monitor():
         self.login = False
 
     def monitor(self):
-        writeLog('info', '... script started')
+        writeLog('info', '... script started', self.USERNAME)
         while True:
             # <--- Start of configuration section
             
@@ -198,7 +198,7 @@ class Monitor():
                     # <--- Start of mail monitoring loop
                     
                     if not self.login:
-                        writeLog('info', 'MURMUR: Logging out')
+                        writeLog('info', 'MURMUR: Logging out', self.USERNAME)
                         self.imap.logout()
                         return 
 
@@ -210,7 +210,7 @@ class Monitor():
                     # attempt restablishing connection instead of halting script.
                     self.imap.idle()
                     # TODO: Remove hard-coded IDLE timeout; place in config file
-                    result = self.imap.idle_check(10)
+                    result = self.imap.idle_check(60) # sec
                     if result:
                         self.imap.idle_done()
 
@@ -219,7 +219,7 @@ class Monitor():
 
                         # new mail
                         if self.getLatestEmailID() != newID: 
-                            writeLog('info', 'MURMUR: a new email has arrived')
+                            writeLog('info', 'MURMUR: a new email has arrived', self.USERNAME)
 
                             # Increment newest email ID
                             self.setLatestEmailID( newID )
@@ -241,7 +241,7 @@ class Monitor():
                             # self.QUEUE_CNT = self.QUEUE_CNT % self.QUEUE_MAX
 
                         else:
-                            writeLog('info', 'MURMUR: user checks email')
+                            writeLog('info', 'MURMUR: user checks email', self.USERNAME)
                             result = self.search('UNSEEN')
 
                         # for each in result:
@@ -263,10 +263,10 @@ class Monitor():
                         try:
                             self.imap.idle_done()
                             self.imap.noop()
-                            writeLog('info', 'no new messages seen')
+                            writeLog('info', 'no new messages seen', self.USERNAME)
                         except Exception as e:
                             # Halt script when folder selection fails
-                            writeLog('critical', "No new message reset connection %s" % (str(e)))
+                            writeLog('critical', "No new message reset connection %s" % (str(e)), self.USERNAME)
                             break
                     # End of mail monitoring loop --->
                     continue
@@ -276,4 +276,4 @@ class Monitor():
                 
             # End of configuration section --->
             break
-        writeLog('info', 'script stopped ...')
+        writeLog('info', 'script stopped ...', self.USERNAME)
