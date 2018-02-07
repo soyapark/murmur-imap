@@ -100,7 +100,7 @@ class Monitor():
     def fetchLatestEmailID(self):
         # Retrieve and process all unread messages. Should errors occur due
         # to loss of connection, attempt restablishing connection 
-        print "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1)
+        # print "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1)
         result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
 
         response = self.imap.fetch(result, ['FLAGS'])
@@ -110,7 +110,7 @@ class Monitor():
         return self.NEWEST_EMAIL_ID
 
     def setLatestEmailID(self, inID):
-        #print "Set Last email is " + str(inID)
+        print "Set Last email is " + str(inID)
         self.NEWEST_EMAIL_ID = inID
         
     # Digest and give notifation only for N emails 
@@ -206,7 +206,7 @@ class Monitor():
             while True:
                 # <--- Start of IMAP server connection loop
                 
-                
+
 
                 if not self.selectFolder(folder):
                     break

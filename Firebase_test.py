@@ -90,16 +90,16 @@ def stream_handler(message):
                 print "out:", s.getvalue()
                 print features
 
-                if 'queue' in features:
-                    print "Request for queue"
-                    monitors[message["data"]["uid"]].queue( features['queue'][0], features['queue'][1])
-                    data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
-
-                elif 'logout' in features:
+                if 'logout' in features:
                     #kill thread
                     print "Request for logout"
                     monitors[message["data"]["uid"]].logout()
                     data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
+
+                elif 'queue' in features:
+                    print "Request for queue"
+                    monitors[message["data"]["uid"]].queue( features['queue'][0], features['queue'][1])
+                    data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
 
                 else: 
                     data = {"type": "info", "content": s.getvalue()}

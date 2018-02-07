@@ -10,6 +10,7 @@ class Mmail():
 
     def getCount(self):
         messages = self.imap.search( self.search_criteria )
+        print messages
         return len(messages)
 
     def getFlags(self):

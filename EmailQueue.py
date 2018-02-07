@@ -19,7 +19,7 @@ class EmailQueue():
             # self.imap.move(self.messagesID, 'INBOX')
 
             ##TODO: more flexible search criteria
-            incoming_emails = "UID %s:*" % str( self.messagesID[-1] )
+            incoming_emails = "UID %s:*" % str( self.messagesID[-1] +1 )
             self.messages.setSearch_criteria( incoming_emails )
             self.messagesID = []
             
