@@ -6,7 +6,7 @@ import sys
 try:
     from StringIO import StringIO
 except ImportError:
-    from io import StringIO
+    import io
 import contextlib
 from Log import *
 
@@ -25,7 +25,7 @@ db = firebase.database()
 def stdoutIO(stdout=None):
     old = sys.stdout
     if stdout is None:
-        stdout = StringIO.StringIO()
+        stdout = io.StringIO()
     sys.stdout = stdout
     yield stdout
     sys.stdout = old
@@ -112,7 +112,7 @@ def stream_handler(message):
 
                 
             except Exception as e:
-                writeLog( "Execution error %s" % (str(e)) )
+                writeLog( "critical", "Execution error %s" % (str(e)) )
                 # Send this error msg to the user
                 data = {"type": "error", "content": str(e)}
                 db.child("messages").child(message["data"]["uid"]).push(data)

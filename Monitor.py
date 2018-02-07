@@ -81,7 +81,7 @@ class Monitor():
         result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
 
         response = self.imap.fetch(result, ['FLAGS'])
-        return max(msgid for msgid, v in response.iteritems()) if response else self.getLatestEmailID()
+        return max(msgid for msgid, v in response.items()) if response else self.getLatestEmailID()
 
     def getLatestEmailID(self):
         return self.NEWEST_EMAIL_ID
