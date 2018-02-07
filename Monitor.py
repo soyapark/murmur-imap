@@ -62,7 +62,7 @@ class Monitor():
     def createFolder(self, inInboxName):
         if not self.imap.folder_exists(inInboxName):
             self.imap.create_folder(inInboxName)
-            log.info('%s Create folder name %s' (self.imap.create_folder(inInboxName), inInboxName))
+            log.info('%s Create folder name %s' % (self.imap.create_folder(inInboxName), inInboxName))
             #print('%s folder not exist! TERMINATE' % INBOX_NAME)
             #sys.exit()
 
@@ -233,7 +233,7 @@ class Monitor():
                     # attempt restablishing connection instead of halting script.
                     self.imap.idle()
                     # TODO: Remove hard-coded IDLE timeout; place in config file
-                    result = self.imap.idle_check(5*60)
+                    result = self.imap.idle_check(4*60)
                     if result:
                         self.imap.idle_done()
 
@@ -287,9 +287,9 @@ class Monitor():
                             self.imap.idle_done()
                             self.imap.noop()
                             log.info('no new messages seen')
-                        except Exception:
+                        except Exception as e:
                             # Halt script when folder selection fails
-                            log.critical("No new message reset connection")
+                            log.critical("No new message reset connection %s" % (str(e)))
                             break
                     # End of mail monitoring loop --->
                     continue
