@@ -77,10 +77,11 @@ class Monitor():
     def fetchLatestEmailID(self):
         # Retrieve and process all unread messages. Should errors occur due
         # to loss of connection, attempt restablishing connection 
-        # print "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1)
+        print ("fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
         result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
-
+        # print ("hello world")
         response = self.imap.fetch(result, ['FLAGS'])
+        # print ("welkjfsld" + response)
         return max(msgid for msgid, v in response.items()) if response else self.getLatestEmailID()
 
     def getLatestEmailID(self):
@@ -95,7 +96,8 @@ class Monitor():
         if full_when == None:
             return "Raise error"
         
-        incoming_emails = "UID %s:*" % str(self.getLatestEmailID() + 1)
+        incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
+        print ("queue generate" + incoming_emails)
         m = Mmail(self.imap, incoming_emails)
         self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
         writeLog('info', 'MURMUR: %s the queue has been successfully installed' % (self.USERNAME))
@@ -236,6 +238,7 @@ class Monitor():
 
                             # Push at queue
                             if self.QUEUE:
+                                print ("Queue check")
                                 self.QUEUE.push(newID)
                             # self.QUEUE_CNT = self.QUEUE_CNT + 1
                             # self.QUEUE_CNT = self.QUEUE_CNT % self.QUEUE_MAX

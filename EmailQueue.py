@@ -1,4 +1,5 @@
 from SMTP import * 
+from Log import *
 
 class EmailQueue():
     def __init__(self, imap, messages, full_when, folder):

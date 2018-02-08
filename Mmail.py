@@ -1,16 +1,24 @@
 from email.parser import HeaderParser
 
+def get_text(msg):
+    if msg.is_multipart():
+        return get_text(msg.get_payload(0))
+    else:
+        return msg.get_payload(None, True)
+
 class Mmail():
     def __init__(self, imap, search_criteria):
         self.imap = imap
         self.search_criteria = search_criteria
+        print (self.search_criteria)
 
     def setSearch_criteria(self, search_criteria):
         self.search_criteria = search_criteria
 
     def getCount(self):
+        print (self.search_criteria)
         messages = self.imap.search( self.search_criteria )
-        # print messages
+        # print (messages)
         return len(messages)
 
     def getFlags(self):
@@ -41,11 +49,13 @@ class Mmail():
 
         results = []
         messages = self.imap.search( self.search_criteria )
+        # raw=email.message_from_bytes(data[0][1])
         response = self.imap.fetch(messages, ['BODY[HEADER]'])
         parser = HeaderParser()
 
         for msgid, data in response.items():
-            msg = parser.parsestr(data['BODY[HEADER]'])
+            # print (data[b'BODY[HEADER]'])
+            msg = parser.parsestr(data[b'BODY[HEADER]'].decode("utf-8"))
             results.append( msg[header] )
 
         self.setSeen(False, unreads)
