@@ -200,7 +200,10 @@ class Monitor():
                 # # then fire the ready event
                 writeLog('info', 'MURMUR: ready to execute commands', self.USERNAME)
 
-                while True:
+                loop_cnt = 1
+
+                while loop_cnt % 10  == 0:
+                    loop_cnt = loop_cnt + 1
                     # <--- Start of mail monitoring loop
                     
                     writeLog('info', 'MURMUR: Start of mail monitoring loop', self.USERNAME)
@@ -218,7 +221,7 @@ class Monitor():
                     # attempt restablishing connection instead of halting script.
                     self.imap.idle()
                     # TODO: Remove hard-coded IDLE timeout; place in config file
-                    result = self.imap.idle_check(60) # sec
+                    result = self.imap.idle_check(60*5) # sec
                     if result:
                         self.imap.idle_done()
 
