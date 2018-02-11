@@ -8,6 +8,7 @@ import email
 from time import sleep
 from datetime import datetime, time
 
+from Auth import *
 from EmailQueue import * 
 from Mmail import * 
 from Log import *
@@ -15,18 +16,25 @@ from Log import *
 # TODO: Support SMTP log handling for CRITICAL errors.
 
 class Monitor(): 
-    def __init__(self, imap, ready, username):
-        self.imap = imap
+    def __init__(self, USERNAME, PASSWORD, HOST):
+        # self.imap = imap
         self.NEWEST_EMAIL_ID = -1
-        self.USERNAME = username
         # self.QUEUE_CNT = 0
         # self.QUEUE_MAX = 2
         self.QUEUE = ''
-        self.ready = ready
+        # self.ready = ready
         self.emails = [] # list to store old email IDs
         self.login = True
 
-    
+        self.USERNAME = USERNAME
+        self.PASSWORD = PASSWORD
+        self.HOST = HOST
+
+        self.authenticate()
+
+    def authenticate(self):
+        self.auth = Auth(self.USERNAME, self.PASSWORD, self.HOST)
+        self.imap = self.auth.getServer()
 
     def process_email(self, mail_, download_, log_):
         """Email processing to be done here. mail_ is the Mail object passed to this
@@ -109,7 +117,7 @@ class Monitor():
         writeLog('info', '... script started', self.USERNAME)
         while True:
             # <--- Start of configuration section
-            
+
             # # Read config file - halt script on failure
             # try:
             # 	config_file = open('imap_monitor.ini','r+')
@@ -184,9 +192,6 @@ class Monitor():
 
             while True:
                 # <--- Start of IMAP server connection loop
-                
-
-
                 if not self.selectFolder(folder):
                     break
 
@@ -273,10 +278,17 @@ class Monitor():
                             break
                     # End of mail monitoring loop --->
                     continue
-                    
+                
+                # reauthenticate
+                writeLog("info", "imap disconnected. Try reauthenticate")
+                self.authenticate() 
+
                 # End of IMAP server connection loop --->
                 continue
-                
+
+              
+
             # End of configuration section --->
-            break
+
+            continue
         writeLog('info', 'script stopped ...', self.USERNAME)

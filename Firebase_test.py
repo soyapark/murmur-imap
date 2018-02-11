@@ -52,9 +52,11 @@ def stream_handler(message):
     # print message["data"].keys()[0]
 
     if "type" in message["data"]:
+        print ("hello")
         if message["data"]["type"] == "auth":
-            auth = Auth(message["data"]["username"], message["data"]["password"], 'imap.gmail.com')
-            server = auth.getServer()
+            writeLog("info", "write request", message["data"]["username"])
+            monitor = Monitor(message["data"]["username"], message["data"]["password"], 'imap.gmail.com')
+            server = monitor.imap
 
             uid = message["path"][1:] # uid
             db.child("users").child(message["path"][1:]).remove()
@@ -73,7 +75,6 @@ def stream_handler(message):
             
             ready = Event()
 
-            monitor = Monitor(server, ready, message["data"]["username"])
             monitors[uid] = monitor
 
             threading1 = Thread(target=monitor.monitor)
