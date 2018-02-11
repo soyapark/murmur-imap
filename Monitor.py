@@ -198,17 +198,18 @@ class Monitor():
                 self.setLatestEmailID(self.fetchLatestEmailID())
 
                 # # then fire the ready event
-                print ("ready")
-                # self.ready.put('done')
-                        
+                writeLog('info', 'MURMUR: ready to execute commands', self.USERNAME)
+
                 while True:
                     # <--- Start of mail monitoring loop
                     
+                    writeLog('info', 'MURMUR: Start of mail monitoring loop', self.USERNAME)
+
                     if not self.login:
                         writeLog('info', 'MURMUR: Logging out', self.USERNAME)
                         self.imap.logout()
                         return 
-
+                    
                     # After all unread emails are cleared on initial login, start
                     # monitoring the folder for new email arrivals and process 
                     # accordingly. Use the IDLE check combined with occassional NOOP
@@ -221,7 +222,7 @@ class Monitor():
                     if result:
                         self.imap.idle_done()
 
-                        writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
+                        # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
                         newID = self.fetchLatestEmailID()
 
                         # new mail

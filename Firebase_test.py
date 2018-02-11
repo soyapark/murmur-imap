@@ -52,7 +52,7 @@ def stream_handler(message):
     # print message["data"].keys()[0]
 
     if "type" in message["data"]:
-        print ("hello")
+        # print ("hello")
         if message["data"]["type"] == "auth":
             writeLog("info", "write request", message["data"]["username"])
             monitor = Monitor(message["data"]["username"], message["data"]["password"], 'imap.gmail.com')
@@ -71,9 +71,6 @@ def stream_handler(message):
                 # send message to user auth success
                 data = {"code": 200, "auth": "Authentication Success."}
                 db.child("messages").child(uid).push(data)
-            
-            
-            ready = Event()
 
             monitors[uid] = monitor
 
