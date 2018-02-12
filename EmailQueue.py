@@ -1,10 +1,11 @@
-from SMTP import * 
 from Log import *
+# from Utils import *
 
 class EmailQueue():
-    def __init__(self, imap, messages, full_when, folder):
+    def __init__(self, imap, messages, full_when, action, folder):
         self.imap = imap
         self.full_when = full_when
+        self.action = action
         self.folder = folder
         self.messages = messages
         self.messagesID = []
@@ -12,7 +13,7 @@ class EmailQueue():
     def push(self, emailID):
         self.messagesID.append(emailID)
 
-        self.checkFull()
+        return not self.checkFull()
 
     def checkFull(self):
         if self.full_when(self.messages):
@@ -24,6 +25,8 @@ class EmailQueue():
             self.messages.setSearch_criteria( incoming_emails )
             self.messagesID = []
             
-            
-            send(destination='soyapark2535@gmail.com', subject='Murmur: Your email queue is full')
+            # send(destination='soyapark2535@gmail.com', subject='Murmur: Your email queue is full')
+            return True
+
+        return False
             

@@ -10,6 +10,22 @@ except ImportError:
 import contextlib
 from Log import *
 
+
+from imapclient import IMAPClient
+from SMTP import * 
+
+import os.path as path
+import traceback
+# import ConfigParser
+import email
+from time import sleep
+from datetime import datetime, time
+
+from Auth import *
+from EmailQueue import * 
+# from Utils import *
+          
+
 config = {
   "apiKey": "###",
   "authDomain": "murmur-183618.firebaseapp.com",
@@ -45,6 +61,162 @@ class User():
     def __exit__(self,  tp, value, traceback):
         pass
 
+def interpret(uid, cmd, isMonitor):
+    try:
+        with User(monitors[uid]) as u, stdoutIO() as s:
+            global queue_action 
+            queue_action = {}
+            def send(to_address, subject, content):
+                writeLog("info","Request for sending email")
+                u.monitor.send(to_address, subject, content)
+
+            def queue(func, qwe, folders):
+                writeLog("info", "Request for queue")
+                global queue_action 
+                queue_action = qwe
+                u.monitor.queue(func, qwe, folders)
+                qwe()
+                data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
+                db.child("messages").child(uid).push(data)
+
+            def logout():
+                #kill thread
+                writeLog("info","Request for logout")
+                u.monitor.logout()
+                data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
+                db.child("messages").child(uid).push(data)
+
+            if isMonitor:
+                # writeLog("info",queue_action)
+                # senddd("as","wew","sdf")
+                writeLog('info', '... script started', u.monitor.USERNAME)
+                while True:
+                    folder = "murmur-test-all"
+
+                    while True:
+                        # <--- Start of IMAP server connection loop
+                        if not u.monitor.selectFolder(folder):
+                            break
+
+                        u.monitor.setLatestEmailID(u.monitor.fetchLatestEmailID())
+
+                        # # then fire the ready event
+                        writeLog('info', 'MURMUR: ready to execute commands', u.monitor.USERNAME)
+
+                        loop_cnt = 1
+
+                        while True:
+                            loop_cnt = loop_cnt + 1
+                            # <--- Start of mail monitoring loop
+                            
+                            writeLog('info', 'MURMUR: Start of mail monitoring loop', u.monitor.USERNAME)
+
+                            if not u.monitor.login:
+                                writeLog('info', 'MURMUR: Logging out', u.monitor.USERNAME)
+                                u.monitor.imap.logout()
+                                return 
+                            
+                            # After all unread emails are cleared on initial login, start
+                            # monitoring the folder for new email arrivals and process 
+                            # accordingly. Use the IDLE check combined with occassional NOOP
+                            # to refresh. Should errors occur in this loop (due to loss of
+                            # connection), return control to IMAP server connection loop to
+                            # attempt restablishing connection instead of halting script.
+                            u.monitor.imap.idle()
+                            # TODO: Remove hard-coded IDLE timeout; place in config file
+                            result = u.monitor.imap.idle_check() # sec
+                            if result:
+                                u.monitor.imap.idle_done()
+
+                                # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
+                                newID = u.monitor.fetchLatestEmailID()
+
+                                # new mail
+                                if u.monitor.getLatestEmailID() != newID: 
+                                    writeLog('info', 'MURMUR: a new email has arrived', u.monitor.USERNAME)
+
+                                    # Increment newest email ID
+                                    u.monitor.setLatestEmailID( newID )
+
+                                    # print "UID %s:*" % str(self.getLatestEmailID() + 1)
+                                    result = u.monitor.search( "UID %s:*" % str(u.monitor.getLatestEmailID() + 1) )
+                                    # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
+                                    response = u.monitor.imap.fetch(result, ['FLAGS'])
+
+                                    # for msgid, data in response.items():
+                                    #     print('   ID %d: flags=%s' % (msgid,
+                                    #                                             data[b'FLAGS']))
+                                    # print ""
+
+                                    # Push at queue
+                                    if u.monitor.QUEUE:
+                                        print ("Queue check")
+                                        if not u.monitor.QUEUE.push(newID): # if queue is full
+                                            queue_action() # do defined action
+
+                                    # self.QUEUE_CNT = self.QUEUE_CNT + 1
+                                    # self.QUEUE_CNT = self.QUEUE_CNT % self.QUEUE_MAX
+
+                                else:
+                                    writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
+                                    result = u.monitor.search('UNSEEN')
+
+                                # for each in result:
+                                #     fetch = self.imap.fetch(each, ['RFC822'])
+                                #     mail = email.message_from_string(
+                                #         fetch[each]['RFC822']
+                                #         )
+                                #     try:
+                                #         self.process_email(mail, download, log)
+                                #         log.info('processing email {0} - {1}'.format(
+                                #             each, mail['subject']
+                                #             ))
+                                #     except Exception:
+                                #         log.error(
+                                #             'failed to process email {0}'.format(each))
+                                #         raise
+                                #         continue
+                            else:
+                                try:
+                                    u.monitor.imap.idle_done()
+                                    u.monitor.imap.noop()
+                                    writeLog('info', 'no new messages seen', u.monitor.USERNAME)
+                                except Exception as e:
+                                    # Halt script when folder selection fails
+                                    writeLog('critical', "No new message reset connection %s" % (str(e)), u.monitor.USERNAME)
+                                    break
+                            # End of mail monitoring loop --->
+                            continue
+                        
+                        # reauthenticate
+                        writeLog("info", "imap disconnected. Try reauthenticate")
+                        u.monitor.authenticate() 
+
+                        # End of IMAP server connection loop --->
+                        continue
+
+                    
+
+                    # End of configuration section --->
+
+                    continue
+                writeLog('info', 'script stopped ...', u.monitor.USERNAME)
+
+
+
+                
+            else:
+                d = dict(locals(), **globals())
+                exec( cmd, d, d)
+
+            # db.child("messages").child(message["data"]["uid"]).push(data)
+
+    except Exception as e:
+        writeLog( "critical", "Execution error %s" % (str(e)) )
+        # Send this error msg to the user
+        data = {"type": "error", "content": str(e)}
+        db.child("messages").child(uid).push(data)
+
 def stream_handler(message):
     # print(message["event"]) # put
     # print(message["path"]) # /-K7yGTTEp7O549EzTYtI
@@ -78,7 +250,7 @@ def stream_handler(message):
 
             monitors[uid] = monitor
 
-            threading1 = Thread(target=monitor.monitor)
+            threading1 = Thread(target=interpret, args=[uid, "", True])
             threading1.daemon = True
             threading1.start()
 
@@ -88,34 +260,7 @@ def stream_handler(message):
         elif message["data"]["type"] == "cmd":
             print ("New command", message["data"]["content"])
             
-            try:
-                with User(monitors[message["data"]["uid"]]) as u, stdoutIO() as s:
-                    data = {}
-                    def queue(func, folders):
-                        writeLog("info", "Request for queue")
-                        u.monitor.queue(func, folders)
-                        data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
-                        db.child("messages").child(message["data"]["uid"]).push(data)
-
-                    def logout():
-                        #kill thread
-                        writeLog("info","Request for logout")
-                        u.monitor.logout()
-                        data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
-                        db.child("messages").child(message["data"]["uid"]).push(data)
-
-                    def send(to_address, subject, content):
-                        u.send(to_address, subject, content)
-
-                    exec( message["data"]["content"] )
-
-                    # db.child("messages").child(message["data"]["uid"]).push(data)
-
-            except Exception as e:
-                writeLog( "critical", "Execution error %s" % (str(e)) )
-                # Send this error msg to the user
-                data = {"type": "error", "content": str(e)}
-                db.child("messages").child(message["data"]["uid"]).push(data)
+            interpret(message["data"]["uid"], message["data"]["content"], False)
 
 
 writeLog("info", "Start stream")

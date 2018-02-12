@@ -33,7 +33,7 @@ def read_template(filename):
         template_file_content = template_file.read()
     return Template(template_file_content)
 
-def send(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subject='', content='Hello Murmur'): 
+def send_message(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subject='', content='Hello Murmur'): 
     # set up the SMTP server
     s = smtplib.SMTP(host='smtp.gmail.com', port=587)
     s.starttls()
@@ -47,19 +47,13 @@ def send(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subject='', co
     for name, email in zip(names, emails):
         msg = MIMEMultipart()       # create a message
 
-        # add in the actual person name to the message template
-        message = message_template.substitute(PERSON_NAME=name.title())
-
-        # Prints out the message body for our sake
-        print(message)
-
         # setup the parameters of the message
         msg['From']=sender
         msg['To']=destination
         msg['Subject']=subject
         
         # add in the message body
-        msg.attach(MIMEText(message, 'plain'))
+        msg.attach(MIMEText(content, 'plain'))
         
         # send the message via the server set up earlier.
         s.sendmail(sender, destination,msg.as_string())
