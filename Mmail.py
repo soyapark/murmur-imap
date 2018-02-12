@@ -1,4 +1,5 @@
 from email.parser import HeaderParser
+from Log import *
 
 def get_text(msg):
     if msg.is_multipart():
@@ -10,13 +11,13 @@ class Mmail():
     def __init__(self, imap, search_criteria):
         self.imap = imap
         self.search_criteria = search_criteria
-        print (self.search_criteria)
+        writeLog ("info", self.search_criteria)
 
     def setSearch_criteria(self, search_criteria):
         self.search_criteria = search_criteria
 
     def getCount(self):
-        print (self.search_criteria)
+        writeLog ("info", self.search_criteria)
         messages = self.imap.search( self.search_criteria )
         # print (messages)
         return len(messages)

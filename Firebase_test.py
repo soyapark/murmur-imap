@@ -70,12 +70,11 @@ def interpret(uid, cmd, isMonitor):
                 writeLog("info","Request for sending email")
                 u.monitor.send(to_address, subject, content)
 
-            def queue(func, qwe, folders):
+            def queue(func, action, folders):
                 writeLog("info", "Request for queue")
                 global queue_action 
-                queue_action = qwe
-                u.monitor.queue(func, qwe, folders)
-                qwe()
+                queue_action = action
+                u.monitor.queue(func, action, folders)
                 data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
                 db.child("messages").child(uid).push(data)
 
