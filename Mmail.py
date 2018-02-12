@@ -25,13 +25,14 @@ class Mmail():
     def getFlags(self):
         messages = self.imap.search( self.search_criteria )
 
-        flags = self.imap.fetch(messages, ['FLAGS'])
-        results = []
+        flags = {}
+        for msgid, data in self.imap.get_flags(messages).items():
+            print('   ID %d: flags=%s ' % (msgid,
+                                            data))
+            # print (int.from_bytes(msgid, byteorder='little'))                              
+            flags[msgid] = data
 
-        for msgid, data in flags.items():
-            results.append(data[b'FLAGS'])
-
-        return results
+        return flags
 
     def getSubject(self):
         return self.getEmail('Subject')
@@ -56,7 +57,7 @@ class Mmail():
 
         if response is None:
             return []
-            
+
         for msgid, data in response.items():
             # print (data[b'BODY[HEADER]'])
             msg = parser.parsestr(data[b'BODY[HEADER]'].decode("utf-8"))
@@ -69,14 +70,15 @@ class Mmail():
     def getUnreadEmails(self):
         messages = self.imap.search( self.search_criteria )
 
-        flags = self.imap.fetch(messages, ['FLAGS'])
+        flags = self.getFlags()
+
+        if flags is None:
+            return []
+
         read_emails = []
 
-        for msgid, data in flags.items():
-            print('   ID %d: flags=%s ' % (msgid,
-                                            data[b'FLAGS']))
-
-            if '\\Seen' not in data[b'FLAGS']:
+        for msgid, data in flags.items(): 
+            if b'\\Seen' not in data:
                 read_emails.append(msgid)
 
         return read_emails

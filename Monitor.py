@@ -109,7 +109,7 @@ class Monitor():
             return "Raise error"
         
         incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
-        print ("queue generate" + incoming_emails)
+        # print ("queue generate" + incoming_emails)
         m = Mmail(self.imap, incoming_emails)
         self.QUEUE = EmailQueue(self.imap, m, full_when, action, folder)
         writeLog('info', 'MURMUR: %s the queue has been successfully installed' % (self.USERNAME))
