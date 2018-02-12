@@ -30,16 +30,20 @@ def stdoutIO(stdout=None):
     yield stdout
     sys.stdout = old
 
-
-features = {}
-
-def queue(func, folders):
-    features['queue'] = [func, folders]
-
-def logout():
-    features['logout'] = []
-
 monitors = {} # uid: monitor_instance
+
+class User():
+    def __init__(self, monitor):
+        self.monitor = monitor
+
+    def __str__(self):
+        return "????"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self,  tp, value, traceback):
+        pass
 
 def stream_handler(message):
     # print(message["event"]) # put
@@ -83,32 +87,30 @@ def stream_handler(message):
 
         elif message["data"]["type"] == "cmd":
             print ("New command", message["data"]["content"])
-            features.clear()
             
             try:
-                # exec( message["data"]["content"])
-                with stdoutIO() as s:
+                with User(monitors[message["data"]["uid"]]) as u, stdoutIO() as s:
+                    data = {}
+                    def queue(func, folders):
+                        writeLog("info", "Request for queue")
+                        u.monitor.queue(func, folders)
+                        data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
+                        db.child("messages").child(message["data"]["uid"]).push(data)
+
+                    def logout():
+                        #kill thread
+                        writeLog("info","Request for logout")
+                        u.monitor.logout()
+                        data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
+                        db.child("messages").child(message["data"]["uid"]).push(data)
+
+                    def send(to_address, subject, content):
+                        u.send(to_address, subject, content)
+
                     exec( message["data"]["content"] )
-                # print "out:", s.getvalue()
-                # print features
 
-                if 'logout' in features:
-                    #kill thread
-                    writeLog("info","Request for logout")
-                    monitors[message["data"]["uid"]].logout()
-                    data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
+                    # db.child("messages").child(message["data"]["uid"]).push(data)
 
-                elif 'queue' in features:
-                    writeLog("info", "Request for queue")
-                    monitors[message["data"]["uid"]].queue( features['queue'][0], features['queue'][1])
-                    data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
-
-                else: 
-                    data = {"type": "info", "content": s.getvalue()}
-
-                db.child("messages").child(message["data"]["uid"]).push(data)
-
-                
             except Exception as e:
                 writeLog( "critical", "Execution error %s" % (str(e)) )
                 # Send this error msg to the user
