@@ -17,7 +17,7 @@ class Mmail():
         self.search_criteria = search_criteria
 
     def getCount(self):
-        writeLog ("info", self.search_criteria)
+        writeLog ("info", "Mmail getCount(): " + self.search_criteria)
         messages = self.imap.search( self.search_criteria )
         # print (messages)
         return len(messages)
@@ -54,6 +54,9 @@ class Mmail():
         response = self.imap.fetch(messages, ['BODY[HEADER]'])
         parser = HeaderParser()
 
+        if response is None:
+            return []
+            
         for msgid, data in response.items():
             # print (data[b'BODY[HEADER]'])
             msg = parser.parsestr(data[b'BODY[HEADER]'].decode("utf-8"))

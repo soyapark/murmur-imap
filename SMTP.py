@@ -51,7 +51,12 @@ def send_message(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subjec
         msg['From']=sender
         msg['To']=destination
         msg['Subject']=subject
-        
+
+        # todo change with original sender
+        msg.add_header('reply-to', "asdf" + ' <' + "test@mit.edu" + '>')
+        # msg['From'] = "test@mit.edu" + ' <' + MY_ADDRESS + '>'
+        # msg.add_header('From', "qwer" + ' <' + "test@mit.edu" + '>')
+
         # add in the message body
         msg.attach(MIMEText(content, 'plain'))
         
@@ -63,5 +68,5 @@ def send_message(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subjec
     s.quit()
     
 if __name__ == '__main__':
-    #test()
+    # send_message(subject="qwer")
     pass
