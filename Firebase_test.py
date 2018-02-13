@@ -23,7 +23,7 @@ from datetime import datetime, time
 
 from Auth import *
 from EmailQueue import * 
-# from Utils import *
+from Cleanup import *
           
 
 config = {
@@ -36,6 +36,14 @@ config = {
 
 firebase = pyrebase.initialize_app(config)
 db = firebase.database()
+
+@register_exit_fun
+def cleanup():
+    print("cleanup START")
+    db.child("running").remove()
+    print("cleanup")
+
+# register_exit_fun(cleanup)
 
 @contextlib.contextmanager
 def stdoutIO(stdout=None):
@@ -64,26 +72,34 @@ class User():
 def interpret(uid, cmd, isMonitor):
     try:
         with User(monitors[uid]) as u, stdoutIO() as s:
+            global execution_result
+            execution_result = ""
+            
             global queue_action 
             queue_action = {}
             def send(to_address, subject, content):
                 writeLog("info","Request for sending email")
                 u.monitor.send(to_address, subject, content)
 
+                global execution_result
+                execution_result += "\nRequested email sent\n"
+
             def queue(func, action, folders):
                 writeLog("info", "Request for queue")
                 global queue_action 
                 queue_action = action
                 u.monitor.queue(func, action, folders)
-                data = {"type": "info", "content": s.getvalue() + "\nYour queue is successfully launched"}
-                db.child("messages").child(uid).push(data)
+
+                global execution_result
+                execution_result += "\nYour queue is successfully launched\n"
 
             def logout():
                 #kill thread
                 writeLog("info","Request for logout")
                 u.monitor.logout()
-                data = {"type": "info", "content": s.getvalue() + "\nYou're logged out shortly. Bye!"}
-                db.child("messages").child(uid).push(data)
+
+                global execution_result
+                execution_result += "\nYou're logged out shortly. Bye!\n"
 
             if isMonitor:
                 # writeLog("info",queue_action)
@@ -160,21 +176,6 @@ def interpret(uid, cmd, isMonitor):
                                     writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
                                     result = u.monitor.search('UNSEEN')
 
-                                # for each in result:
-                                #     fetch = self.imap.fetch(each, ['RFC822'])
-                                #     mail = email.message_from_string(
-                                #         fetch[each]['RFC822']
-                                #         )
-                                #     try:
-                                #         self.process_email(mail, download, log)
-                                #         log.info('processing email {0} - {1}'.format(
-                                #             each, mail['subject']
-                                #             ))
-                                #     except Exception:
-                                #         log.error(
-                                #             'failed to process email {0}'.format(each))
-                                #         raise
-                                #         continue
                             else:
                                 try:
                                     u.monitor.imap.idle_done()
@@ -200,13 +201,16 @@ def interpret(uid, cmd, isMonitor):
 
                     continue
                 writeLog('info', 'script stopped ...', u.monitor.USERNAME)
-
-
-
-                
+              
             else:
                 d = dict(locals(), **globals())
                 exec( cmd, d, d)
+
+                global execution_result
+                data = {"type": "info", "content": execution_result + s.getvalue()}
+                db.child("messages").child(uid).push(data)
+
+                db.child("running").child(uid).set(cmd)
 
             # db.child("messages").child(message["data"]["uid"]).push(data)
 
