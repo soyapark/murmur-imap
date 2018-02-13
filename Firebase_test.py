@@ -3,6 +3,7 @@ from Auth import Auth
 from threading import Event, Thread
 from Monitor import *
 import sys
+import traceback
 try:
     from StringIO import StringIO
 except ImportError:
@@ -68,12 +69,13 @@ class User():
 
     def __exit__(self,  tp, value, traceback):
         pass
+global execution_result
+execution_result = ""
 
 def interpret(uid, cmd, isMonitor):
+    
     try:
         with User(monitors[uid]) as u, stdoutIO() as s:
-            global execution_result
-            execution_result = ""
             
             global queue_action 
             queue_action = {}
@@ -215,7 +217,13 @@ def interpret(uid, cmd, isMonitor):
             # db.child("messages").child(message["data"]["uid"]).push(data)
 
     except Exception as e:
-        writeLog( "critical", "Execution error %s" % (str(e)) )
+        etype, evalue = sys.exc_info()[:2]
+        estr = traceback.format_exception_only(etype, evalue)
+        logstr = 'failed to select IMAP folder - '
+        for each in estr:
+            logstr += '{0}; '.format(each.strip('\n'))
+
+        writeLog( "critical", "Execution error %s \n %s" % (str(e), logstr) )
         # Send this error msg to the user
         data = {"type": "error", "content": str(e)}
         db.child("messages").child(uid).push(data)
