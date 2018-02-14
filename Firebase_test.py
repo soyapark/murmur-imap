@@ -69,6 +69,12 @@ class User():
 
     def __exit__(self,  tp, value, traceback):
         pass
+
+def pushMessage(path, message):
+    writeLog("info","Send a message to a server %s %s" % (path, message))
+
+    db.child("/".join([p for p in path])).push(message)
+
 global execution_result
 execution_result = ""
 
@@ -108,14 +114,8 @@ def interpret(uid, cmd, isMonitor):
                 # senddd("as","wew","sdf")
                 writeLog('info', '... script started', u.monitor.USERNAME)
                 while True:
-                    folder = "murmur-test-all"
-
                     while True:
                         # <--- Start of IMAP server connection loop
-                        if not u.monitor.selectFolder(folder):
-                            break
-
-                        u.monitor.setLatestEmailID(u.monitor.fetchLatestEmailID())
 
                         # # then fire the ready event
                         writeLog('info', 'MURMUR: ready to execute commands', u.monitor.USERNAME)
@@ -205,11 +205,10 @@ def interpret(uid, cmd, isMonitor):
 
                 global execution_result
                 data = {"type": "info", "content": execution_result + s.getvalue()}
-                db.child("messages").child(uid).push(data)
+                pushMessage(["messages", uid], data)
+                # db.child().child(uid).push(data)
 
                 db.child("running").child(uid).set(cmd)
-
-            # db.child("messages").child(message["data"]["uid"]).push(data)
 
     except Exception as e:
         etype, evalue = sys.exc_info()[:2]
@@ -218,18 +217,20 @@ def interpret(uid, cmd, isMonitor):
         for each in estr:
             logstr += '{0}; '.format(each.strip('\n'))
 
-        writeLog( "critical", "Execution error %s \n %s" % (str(e), logstr) )
+        logstr = "Execution error %s \n %s" % (str(e), logstr)
+        writeLog( "critical", logstr )
 
         # Send this error msg to the user
-        data = {"type": "error", "content": str(e)}
-        db.child("messages").child(uid).push(data)
+        data = {"type": "error", "content": logstr}
+        pushMessage(["messages", uid], data)
+        # db.child("messages").child(uid).push(data)
 
         # Tell the client execution has been stopped
         db.child("running").child(uid).remove()
 
 def stream_handler(message):
     # print(message["event"]) # put
-    # print(message["path"]) # /-K7yGTTEp7O549EzTYtI
+    print(message["path"]) # /-K7yGTTEp7O549EzTYtI
     print ("new Message")
     print (message)
 
@@ -239,24 +240,28 @@ def stream_handler(message):
 
     if "type" in message["data"]:
         # print ("hello")
+
         if message["data"]["type"] == "auth":
-            writeLog("info", "write request", message["data"]["username"])
+            writeLog("info", "auth request", message["data"]["username"])
             monitor = Monitor(message["data"]["username"], message["data"]["password"], 'imap.gmail.com')
             server = monitor.imap
-
+            
             uid = message["path"][1:] # uid
+
             db.child("users").child(message["path"][1:]).remove()
 
             if server == False:
                 # send message to user auth fail
                 data = {"code": 403, "auth": "Authentication Fail. Is it correct username/password?"}
-                db.child("messages").child(uid).push(data)
+                pushMessage(["messages", uid], data)
+                # db.child("messages").child(uid).push(data)
                 return
 
             else:
                 # send message to user auth success
                 data = {"code": 200, "auth": "Authentication Success."}
-                db.child("messages").child(uid).push(data)
+                pushMessage(["messages", uid], data)
+                # db.child("messages").child(uid).push(data)
 
             monitors[uid] = monitor
 
@@ -269,7 +274,7 @@ def stream_handler(message):
             interpret(message["data"]["uid"], message["data"]["content"], False)
 
             # start monitoring when executing code is requested 
-            threading1 = Thread(target=interpret, args=[uid, "", True])
+            threading1 = Thread(target=interpret, args=[message["data"]["uid"], "", True])
             threading1.daemon = True
             threading1.start()
 

@@ -37,6 +37,12 @@ class Monitor():
         self.auth = Auth(self.USERNAME, self.PASSWORD, self.HOST)
         self.imap = self.auth.getServer()
 
+        folder = "murmur-test-all"
+
+        self.selectFolder(folder)
+        
+        self.setLatestEmailID(self.fetchLatestEmailID())
+
     def createFolder(self, inInboxName):
         if not self.imap.folder_exists(inInboxName):
             writeLog('info', '%s Create folder name %s' % (self.imap.create_folder(inInboxName), inInboxName), self.USERNAME)
