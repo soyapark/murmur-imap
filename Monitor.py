@@ -37,6 +37,9 @@ class Monitor():
         self.auth = Auth(self.USERNAME, self.PASSWORD, self.HOST)
         self.imap = self.auth.getServer()
 
+        if not self.imap:
+            return False
+            
         folder = "murmur-test-all"
 
         self.selectFolder(folder)

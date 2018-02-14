@@ -248,6 +248,7 @@ def stream_handler(message):
             
             uid = message["path"][1:] # uid
 
+            # remove user auth info for sake of privacy
             db.child("users").child(message["path"][1:]).remove()
 
             if server == False:
