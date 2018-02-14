@@ -42,7 +42,6 @@ def send_message(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subjec
     names = [sender]
     emails = [destination]
 
-    message_template = read_template('message.txt')
     # For each contact, send the email:
     for name, email in zip(names, emails):
         msg = MIMEMultipart()       # create a message

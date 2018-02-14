@@ -179,25 +179,20 @@ def interpret(uid, cmd, isMonitor):
                                     result = u.monitor.search('UNSEEN')
 
                             else:
-                                try:
-                                    u.monitor.imap.idle_done()
-                                    u.monitor.imap.noop()
-                                    writeLog('info', 'no new messages seen', u.monitor.USERNAME)
-                                except Exception as e:
-                                    # Halt script when folder selection fails
-                                    writeLog('critical', "No new message reset connection %s" % (str(e)), u.monitor.USERNAME)
-                                    break
+                                u.monitor.imap.idle_done()
+                                u.monitor.imap.noop()
+                                writeLog('info', 'no new messages seen', u.monitor.USERNAME)
                             # End of mail monitoring loop --->
                             continue
                         
+                        logout()
+
                         # reauthenticate
                         writeLog("info", "imap disconnected. Try reauthenticate")
                         u.monitor.authenticate() 
 
                         # End of IMAP server connection loop --->
                         continue
-
-                    
 
                     # End of configuration section --->
 
@@ -219,14 +214,18 @@ def interpret(uid, cmd, isMonitor):
     except Exception as e:
         etype, evalue = sys.exc_info()[:2]
         estr = traceback.format_exception_only(etype, evalue)
-        logstr = 'failed to select IMAP folder - '
+        logstr = 'Error during executing your code'
         for each in estr:
             logstr += '{0}; '.format(each.strip('\n'))
 
         writeLog( "critical", "Execution error %s \n %s" % (str(e), logstr) )
+
         # Send this error msg to the user
         data = {"type": "error", "content": str(e)}
         db.child("messages").child(uid).push(data)
+
+        # Tell the client execution has been stopped
+        db.child("running").child(uid).remove()
 
 def stream_handler(message):
     # print(message["event"]) # put
@@ -261,10 +260,6 @@ def stream_handler(message):
 
             monitors[uid] = monitor
 
-            threading1 = Thread(target=interpret, args=[uid, "", True])
-            threading1.daemon = True
-            threading1.start()
-
             # ready.wait()
             # send message to user it's ready to play with
 
@@ -272,6 +267,11 @@ def stream_handler(message):
             print ("New command", message["data"]["content"])
             
             interpret(message["data"]["uid"], message["data"]["content"], False)
+
+            # start monitoring when executing code is requested 
+            threading1 = Thread(target=interpret, args=[uid, "", True])
+            threading1.daemon = True
+            threading1.start()
 
 
 writeLog("info", "Start stream")
