@@ -56,6 +56,7 @@ def stdoutIO(stdout=None):
     sys.stdout = old
 
 monitors = {} # uid: monitor_instance
+auth_info = {}
 
 class User():
     def __init__(self, monitor):
@@ -108,6 +109,9 @@ def interpret(uid, cmd, isMonitor):
 
                 global execution_result
                 execution_result += "\nYou're logged out shortly. Bye!\n"
+
+            def renew():
+                u.monitor = Monitor(auth_info[uid]["username"], auth_info[uid]["password"], 'imap.gmail.com') 
 
             if isMonitor:
                 # writeLog("info",queue_action)
@@ -189,7 +193,7 @@ def interpret(uid, cmd, isMonitor):
 
                         # reauthenticate
                         writeLog("info", "imap disconnected. Try reauthenticate")
-                        u.monitor.authenticate() 
+                        renew()
 
                         # End of IMAP server connection loop --->
                         continue
@@ -244,6 +248,7 @@ def stream_handler(message):
         if message["data"]["type"] == "auth":
             writeLog("info", "auth request", message["data"]["username"])
             monitor = Monitor(message["data"]["username"], message["data"]["password"], 'imap.gmail.com')
+            
             server = monitor.imap
             
             uid = message["path"][1:] # uid
@@ -265,6 +270,7 @@ def stream_handler(message):
                 # db.child("messages").child(uid).push(data)
 
             monitors[uid] = monitor
+            auth_info[uid] = {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}
 
             # ready.wait()
             # send message to user it's ready to play with
