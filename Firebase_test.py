@@ -80,50 +80,44 @@ global execution_result
 execution_result = ""
 
 def interpret(uid, cmd, isMonitor):
-    
-    try:
-        with User(monitors[uid]) as u, stdoutIO() as s:
-            
+    with User(monitors[uid]) as u, stdoutIO() as s:
+        global queue_action 
+        queue_action = {}
+        def send(to_address, subject, content):
+            writeLog("info","Request for sending email")
+            u.monitor.send(to_address, subject, content)
+
+            global execution_result
+            execution_result += "\nRequested email sent\n"
+
+        def queue(func, action, folders):
+            writeLog("info", "Request for queue")
             global queue_action 
-            queue_action = {}
-            def send(to_address, subject, content):
-                writeLog("info","Request for sending email")
-                u.monitor.send(to_address, subject, content)
+            queue_action = action
+            u.monitor.queue(func, action, folders)
 
-                global execution_result
-                execution_result += "\nRequested email sent\n"
+            global execution_result
+            execution_result += "\nYour queue is successfully launched\n"
 
-            def queue(func, action, folders):
-                writeLog("info", "Request for queue")
-                global queue_action 
-                queue_action = action
-                u.monitor.queue(func, action, folders)
+        def logout():
+            #kill thread
+            writeLog("info","Request for logout")
+            u.monitor.logout()
 
-                global execution_result
-                execution_result += "\nYour queue is successfully launched\n"
+            global execution_result
+            execution_result += "\nYou're logged out shortly. Bye!\n"
 
-            def logout():
-                #kill thread
-                writeLog("info","Request for logout")
-                u.monitor.logout()
+        def renew():
+            u.monitor = Monitor(auth_info[uid]["username"], auth_info[uid]["password"], 'imap.gmail.com') 
 
-                global execution_result
-                execution_result += "\nYou're logged out shortly. Bye!\n"
+        if isMonitor:
+            # writeLog("info",queue_action)
+            writeLog('info', '... script started', u.monitor.USERNAME)
 
-            def renew():
-                u.monitor = Monitor(auth_info[uid]["username"], auth_info[uid]["password"], 'imap.gmail.com') 
-
-            if isMonitor:
-                # writeLog("info",queue_action)
-                # senddd("as","wew","sdf")
-                writeLog('info', '... script started', u.monitor.USERNAME)
+            try: 
                 while True:
                     while True:
                         # <--- Start of IMAP server connection loop
-
-                        # # then fire the ready event
-                        writeLog('info', 'MURMUR: ready to execute commands', u.monitor.USERNAME)
-
                         loop_cnt = 1
 
                         while True:
@@ -189,11 +183,6 @@ def interpret(uid, cmd, isMonitor):
                             # End of mail monitoring loop --->
                             continue
                         
-                        logout()
-
-                        # reauthenticate
-                        writeLog("info", "imap disconnected. Try reauthenticate")
-                        renew()
 
                         # End of IMAP server connection loop --->
                         continue
@@ -203,7 +192,29 @@ def interpret(uid, cmd, isMonitor):
                     continue
                 writeLog('info', 'script stopped ...', u.monitor.USERNAME)
               
-            else:
+            except Exception as e:
+                etype, evalue = sys.exc_info()[:2]
+                estr = traceback.format_exception_only(etype, evalue)
+                logstr = 'Error during executing your code'
+                for each in estr:
+                    logstr += '{0}; '.format(each.strip('\n'))
+
+                logstr = "Execution error %s \n %s" % (str(e), logstr)
+                writeLog( "critical", logstr )
+
+                # Send this error msg to the user
+                data = {"type": "error", "content": logstr}
+                pushMessage(["messages", uid], data)
+
+                logout()
+
+                # reauthenticate
+                writeLog("info", "imap disconnected. Try reauthenticate")
+                renew()
+
+            
+        else:
+            try: # exception handling for user code execution 
                 d = dict(locals(), **globals())
                 exec( cmd, d, d)
 
@@ -214,23 +225,24 @@ def interpret(uid, cmd, isMonitor):
 
                 db.child("running").child(uid).set(cmd)
 
-    except Exception as e:
-        etype, evalue = sys.exc_info()[:2]
-        estr = traceback.format_exception_only(etype, evalue)
-        logstr = 'Error during executing your code'
-        for each in estr:
-            logstr += '{0}; '.format(each.strip('\n'))
+            except Exception as e:
+                etype, evalue = sys.exc_info()[:2]
+                estr = traceback.format_exception_only(etype, evalue)
+                logstr = 'Error during executing your code'
+                for each in estr:
+                    logstr += '{0}; '.format(each.strip('\n'))
 
-        logstr = "Execution error %s \n %s" % (str(e), logstr)
-        writeLog( "critical", logstr )
+                logstr = "Execution error %s \n %s" % (str(e), logstr)
+                writeLog( "critical", logstr )
 
-        # Send this error msg to the user
-        data = {"type": "error", "content": logstr}
-        pushMessage(["messages", uid], data)
-        # db.child("messages").child(uid).push(data)
+                # Send this error msg to the user
+                data = {"type": "error", "content": logstr}
+                pushMessage(["messages", uid], data)
+                # db.child("messages").child(uid).push(data)
 
-        # Tell the client execution has been stopped
-        db.child("running").child(uid).remove()
+                # Tell the client execution has been stopped
+                db.child("running").child(uid).remove()
+
 
 def stream_handler(message):
     # print(message["event"]) # put
