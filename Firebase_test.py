@@ -118,6 +118,7 @@ def interpret(uid, cmd, isMonitor):
         def logout():
             #kill thread
             writeLog("info","Request for logout")
+            db.child("running").child(uid).remove()
             u.monitor.logout()
 
             print ("You're logged out shortly. Bye!")
@@ -237,6 +238,9 @@ def interpret(uid, cmd, isMonitor):
             
         else:
             try: # exception handling for user code execution 
+                inbox[uid]["cmd"] = cmd
+                db.child("running").child(uid).set(cmd)
+
                 d = dict(locals(), **globals())
                 exec( cmd, d, d)
 
@@ -245,9 +249,6 @@ def interpret(uid, cmd, isMonitor):
                 pushMessage(["messages", uid], data)
                 # db.child().child(uid).push(data)
                 
-                inbox[uid]["cmd"] = cmd
-                db.child("running").child(uid).set(cmd)
-
             except Exception as e:
                 etype, evalue = sys.exc_info()[:2]
                 estr = traceback.format_exception_only(etype, evalue)
