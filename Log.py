@@ -8,10 +8,15 @@ log.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     '%(asctime)s | %(name)s | %(levelname)s | %(message)s'
     )
-handler_stdout = logging.StreamHandler(sys.stdout)
-handler_stdout.setLevel(logging.DEBUG)
-handler_stdout.setFormatter(formatter)
-log.addHandler(handler_stdout)
+
+debug = False
+
+if debug:
+	handler_stdout = logging.StreamHandler(sys.stdout)
+	handler_stdout.setLevel(logging.DEBUG)
+	handler_stdout.setFormatter(formatter)
+	log.addHandler(handler_stdout)
+
 handler_file = RotatingFileHandler(
 	'imap_monitor.log',
 	mode='a',
@@ -23,6 +28,8 @@ handler_file = RotatingFileHandler(
 handler_file.setLevel(logging.DEBUG)
 handler_file.setFormatter(formatter)
 log.addHandler(handler_file)
+
+
 
 def writeLog(type, content, USERNAME=""):
     if type == "info":

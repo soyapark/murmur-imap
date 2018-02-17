@@ -11,7 +11,6 @@ except ImportError:
 import contextlib
 from Log import *
 
-
 from imapclient import IMAPClient
 from SMTP import * 
 
@@ -19,7 +18,7 @@ import os.path as path
 import traceback
 # import ConfigParser
 import email
-from time import sleep
+from time import sleep 
 from datetime import datetime, time
 
 from Auth import *
@@ -55,8 +54,7 @@ def stdoutIO(stdout=None):
     yield stdout
     sys.stdout = old
 
-monitors = {} # uid: monitor_instance
-auth_info = {}
+inbox = {}
 
 class User():
     def __init__(self, monitor):
@@ -76,13 +74,13 @@ def pushMessage(path, message):
 
     db.child("/".join([p for p in path])).push(message)
 
-global execution_result
+global execution_result, onArrive_func
 execution_result = ""
+onArrive_func = ""
 
 def interpret(uid, cmd, isMonitor):
-    with User(monitors[uid]) as u, stdoutIO() as s:
-        global queue_action 
-        queue_action = {}
+    with User(inbox[uid]["monitor"]) as u, stdoutIO() as s:
+    
         def send(to_address, subject, content):
             writeLog("info","Request for sending email")
             u.monitor.send(to_address, subject, content)
@@ -90,14 +88,23 @@ def interpret(uid, cmd, isMonitor):
             global execution_result
             execution_result += "\nRequested email sent\n"
 
-        def queue(func, action, folders):
-            writeLog("info", "Request for queue")
-            global queue_action 
-            queue_action = action
-            u.monitor.queue(func, action, folders)
+        def onArrive(action, folders):
+            writeLog("info", "Request for onArrive")
+
+            u.monitor.installOnArrive(action, folders)
+            global onArrive_func
+            onArrive_func = action
 
             global execution_result
-            execution_result += "\nYour queue is successfully launched\n"
+            execution_result += "\nYour onArrive is successfully launched\n"
+
+        def onCustom(action, func, folders):
+            writeLog("info", "Request for onCustom")
+
+            u.monitor.installOnCustom(action, func, folders)
+
+            global execution_result
+            execution_result += "\nYour onCustom is successfully launched\n"
 
         def logout():
             #kill thread
@@ -108,10 +115,9 @@ def interpret(uid, cmd, isMonitor):
             execution_result += "\nYou're logged out shortly. Bye!\n"
 
         def renew():
-            u.monitor = Monitor(auth_info[uid]["username"], auth_info[uid]["password"], 'imap.gmail.com') 
+            u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
 
         if isMonitor:
-            # writeLog("info",queue_action)
             writeLog('info', '... script started', u.monitor.USERNAME)
 
             try: 
@@ -163,14 +169,22 @@ def interpret(uid, cmd, isMonitor):
                                     #                                             data[b'FLAGS']))
                                     # print ""
 
-                                    # Push at queue
-                                    if u.monitor.QUEUE:
-                                        print ("Queue check")
-                                        if not u.monitor.QUEUE.push(newID): # if queue is full
-                                            queue_action() # do defined action
+                                    global onArrive_func
+                                    writeLog("info", onArrive_func)
+                                    if onArrive_func:
+                                        writeLog ("info", "onArrive triggered")
+                                        if not u.monitor.QUEUE.push(newID): # do defined action
+                                            onArrive_func( u.monitor.QUEUE.messages )
 
-                                    # self.QUEUE_CNT = self.QUEUE_CNT + 1
-                                    # self.QUEUE_CNT = self.QUEUE_CNT % self.QUEUE_MAX
+                                    if u.monitor.onCustom:
+                                        print ("onCustom triggered")
+                                        if not u.monitor.QUEUE.push(newID): # do defined action
+                                            u.monitor.onCustom( u.monitor.QUEUE.messages ) # do defined action
+
+
+                                    global execution_result
+                                    data = {"type": "info", "content": execution_result + s.getvalue()}
+                                    pushMessage(["messages", uid], data)
 
                                 else:
                                     writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
@@ -222,7 +236,8 @@ def interpret(uid, cmd, isMonitor):
                 data = {"type": "info", "content": execution_result + s.getvalue()}
                 pushMessage(["messages", uid], data)
                 # db.child().child(uid).push(data)
-
+                
+                inbox[uid]["cmd"] = cmd
                 db.child("running").child(uid).set(cmd)
 
             except Exception as e:
@@ -281,21 +296,23 @@ def stream_handler(message):
                 pushMessage(["messages", uid], data)
                 # db.child("messages").child(uid).push(data)
 
-            monitors[uid] = monitor
-            auth_info[uid] = {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}
+            tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}, "cmd": ""}
+            inbox[uid] = tmp
 
             # ready.wait()
             # send message to user it's ready to play with
 
         elif message["data"]["type"] == "cmd":
-            print ("New command", message["data"]["content"])
+            print ("New command Request", message["data"]["content"])
             
             interpret(message["data"]["uid"], message["data"]["content"], False)
 
-            # start monitoring when executing code is requested 
-            threading1 = Thread(target=interpret, args=[message["data"]["uid"], "", True])
-            threading1.daemon = True
-            threading1.start()
+            if not inbox[message["data"]["uid"]]["start"]:
+                # start monitoring only when executing code is requested 
+                inbox[message["data"]["uid"]]["start"] = True
+                threading1 = Thread(target=interpret, args=[message["data"]["uid"], "", True])
+                threading1.daemon = True
+                threading1.start()
 
 
 writeLog("info", "Start stream")

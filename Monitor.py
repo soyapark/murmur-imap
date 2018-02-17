@@ -20,9 +20,10 @@ class Monitor():
     def __init__(self, USERNAME, PASSWORD, HOST):
         # self.imap = imap
         self.NEWEST_EMAIL_ID = -1
-        # self.QUEUE_CNT = 0
-        # self.QUEUE_MAX = 2
-        self.QUEUE = ''
+
+        self.QUEUE = []
+        self.onArrive = ''
+        self.onCustom = ''
         # self.ready = ready
         self.emails = [] # list to store old email IDs
         self.login = True
@@ -39,7 +40,7 @@ class Monitor():
 
         if not self.imap:
             return False
-            
+
         folder = "murmur-test-all"
 
         self.selectFolder(folder)
@@ -55,7 +56,7 @@ class Monitor():
     def fetchLatestEmailID(self):
         # Retrieve and process all unread messages. Should errors occur due
         # to loss of connection, attempt restablishing connection 
-        print ("fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
+        writeLog ("info", "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
         result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
         # print ("hello world")
         response = self.imap.fetch(result, ['FLAGS'])
@@ -109,207 +110,31 @@ class Monitor():
         send_message(self.USERNAME, to_address, subject, content)
 
     def setLatestEmailID(self, inID):
-        print ("Set Last email is " + str(inID))
+        writeLog ("info", "Set Last email is " + str(inID))
         self.NEWEST_EMAIL_ID = inID
+
+    def installOnArrive(self, action, folder):
+        incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
+        # print ("onCustom generate" + incoming_emails)
+        m = Mmail(self.imap, incoming_emails)
+
+        def full_when(x):
+            return True
+        self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
+        self.onArrive = action
+        writeLog('info', 'MURMUR: %s the onArrive has been successfully installed' % (self.USERNAME))
         
     # Digest and give notifation only for N emails 
-    def queue(self, full_when, action, folder):
+    def installOnCustom(self, action, full_when, folder):
         if full_when == None:
             return "Raise error"
         
         incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
-        # print ("queue generate" + incoming_emails)
+        # print ("onCustom generate" + incoming_emails)
         m = Mmail(self.imap, incoming_emails)
-        self.QUEUE = EmailQueue(self.imap, m, full_when, action, folder)
-        writeLog('info', 'MURMUR: %s the queue has been successfully installed' % (self.USERNAME))
+        self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
+        self.onCustom = action
+        writeLog('info', 'MURMUR: %s the onCustom has been successfully installed' % (self.USERNAME))
     
     def logout(self):
         self.login = False
-
-    # def monitor(self):
-    #     writeLog('info', '... script started', self.USERNAME)
-    #     while True:
-    #         # <--- Start of configuration section
-
-    #         # # Read config file - halt script on failure
-    #         # try:
-    #         # 	config_file = open('imap_monitor.ini','r+')
-    #         # except IOError:
-    #         # 	log.critical('configuration file is missing')
-    #         # 	break
-    #         # config = ConfigParser.SafeConfigParser()
-    #         # config.readfp(config_file)
-            
-    #         # # Retrieve IMAP host - halt script if section 'imap' or value 
-    #         # # missing
-    #         # try:
-    #         # 	host = config.get('imap', 'host')
-    #         # except ConfigParser.NoSectionError:
-    #         # 	log.critical('no "imap" section in configuration file')
-    #         # 	break
-    #         # except ConfigParser.NoOptionError:
-    #         # 	log.critical('no IMAP host specified in configuration file')
-    #         # 	break
-            
-    #         # # Retrieve IMAP username - halt script if missing
-    #         # try:
-    #         # 	username = config.get('imap', 'username')
-    #         # except ConfigParser.NoOptionError:
-    #         # 	log.critical('no IMAP username specified in configuration file')
-    #         # 	break
-            
-    #         # # Retrieve IMAP password - halt script if missing
-    #         # try:
-    #         # 	password = config.get('imap', 'password')
-    #         # except ConfigParser.NoOptionError:
-    #         # 	log.critical('no IMAP password specified in configuration file')
-    #         # 	break
-            
-    #         # # Retrieve IMAP SSL setting - warn if missing, halt if not boolean
-    #         # try:
-    #         # 	ssl = config.getboolean('imap', 'ssl')
-    #         # except ConfigParser.NoOptionError:
-    #         # 	# Default SSL setting to False if missing
-    #         # 	log.warning('no IMAP SSL setting specified in configuration file')
-    #         # 	ssl = False
-    #         # except ValueError:
-    #         # 	log.critical('IMAP SSL setting invalid - not boolean')
-    #         # 	break
-            
-    #         # # Retrieve IMAP folder to monitor - warn if missing
-    #         # try:
-    #         # 	folder = config.get('imap', 'folder')
-    #         # except ConfigParser.NoOptionError:
-    #         # 	# Default folder to monitor to 'INBOX' if missing
-    #         # 	log.warning('no IMAP folder specified in configuration file')
-    #         # 	folder = 'INBOX'
-                
-    #         # # Retrieve path for downloads - halt if section of value missing
-    #         # try:
-    #         # 	download = config.get('path', 'download')
-    #         # except ConfigParser.NoSectionError:
-    #         # 	log.critical('no "path" section in configuration')
-    #         # 	break
-    #         # except ConfigParser.NoOptionError:
-    #         # 	# If value is None or specified path not existing, warn and default
-    #         # 	# to script path
-    #         # 	log.warn('no download path specified in configuration')
-    #         # 	download = None
-    #         # finally:
-    #         # 	download = download if (
-    #         # 		download and path.exists(download)
-    #         # 		) else path.abspath(__file__)
-    #         # log.info('setting path for email downloads - {0}'.format(download))
-            
-    #         folder = "murmur-test-all"
-
-    #         while True:
-    #             # <--- Start of IMAP server connection loop
-    #             if not self.selectFolder(folder):
-    #                 break
-
-    #             self.setLatestEmailID(self.fetchLatestEmailID())
-
-    #             # # then fire the ready event
-    #             writeLog('info', 'MURMUR: ready to execute commands', self.USERNAME)
-
-    #             loop_cnt = 1
-
-    #             while True:
-    #                 loop_cnt = loop_cnt + 1
-    #                 # <--- Start of mail monitoring loop
-                    
-    #                 writeLog('info', 'MURMUR: Start of mail monitoring loop', self.USERNAME)
-
-    #                 if not self.login:
-    #                     writeLog('info', 'MURMUR: Logging out', self.USERNAME)
-    #                     self.imap.logout()
-    #                     return 
-                    
-    #                 # After all unread emails are cleared on initial login, start
-    #                 # monitoring the folder for new email arrivals and process 
-    #                 # accordingly. Use the IDLE check combined with occassional NOOP
-    #                 # to refresh. Should errors occur in this loop (due to loss of
-    #                 # connection), return control to IMAP server connection loop to
-    #                 # attempt restablishing connection instead of halting script.
-    #                 self.imap.idle()
-    #                 # TODO: Remove hard-coded IDLE timeout; place in config file
-    #                 result = self.imap.idle_check() # sec
-    #                 if result:
-    #                     self.imap.idle_done()
-
-    #                     # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
-    #                     newID = self.fetchLatestEmailID()
-
-    #                     # new mail
-    #                     if self.getLatestEmailID() != newID: 
-    #                         writeLog('info', 'MURMUR: a new email has arrived', self.USERNAME)
-
-    #                         # Increment newest email ID
-    #                         self.setLatestEmailID( newID )
-
-    #                         # print "UID %s:*" % str(self.getLatestEmailID() + 1)
-    #                         result = self.search( "UID %s:*" % str(self.getLatestEmailID() + 1) )
-    #                         # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
-    #                         response = self.imap.fetch(result, ['FLAGS'])
-
-    #                         # for msgid, data in response.items():
-    #                         #     print('   ID %d: flags=%s' % (msgid,
-    #                         #                                             data[b'FLAGS']))
-    #                         # print ""
-
-    #                         # Push at queue
-    #                         if self.QUEUE:
-    #                             print ("Queue check")
-    #                             if not self.QUEUE.push(newID): # if queue is full
-    #                                 self.QUEUE.action() # do defined action
-
-    #                         # self.QUEUE_CNT = self.QUEUE_CNT + 1
-    #                         # self.QUEUE_CNT = self.QUEUE_CNT % self.QUEUE_MAX
-
-    #                     else:
-    #                         writeLog('info', 'MURMUR: user checks email', self.USERNAME)
-    #                         result = self.search('UNSEEN')
-
-    #                     # for each in result:
-    #                     #     fetch = self.imap.fetch(each, ['RFC822'])
-    #                     #     mail = email.message_from_string(
-    #                     #         fetch[each]['RFC822']
-    #                     #         )
-    #                     #     try:
-    #                     #         self.process_email(mail, download, log)
-    #                     #         log.info('processing email {0} - {1}'.format(
-    #                     #             each, mail['subject']
-    #                     #             ))
-    #                     #     except Exception:
-    #                     #         log.error(
-    #                     #             'failed to process email {0}'.format(each))
-    #                     #         raise
-    #                     #         continue
-    #                 else:
-    #                     try:
-    #                         self.imap.idle_done()
-    #                         self.imap.noop()
-    #                         writeLog('info', 'no new messages seen', self.USERNAME)
-    #                     except Exception as e:
-    #                         # Halt script when folder selection fails
-    #                         writeLog('critical', "No new message reset connection %s" % (str(e)), self.USERNAME)
-    #                         break
-    #                 # End of mail monitoring loop --->
-    #                 continue
-                
-    #             # reauthenticate
-    #             writeLog("info", "imap disconnected. Try reauthenticate")
-    #             self.authenticate() 
-
-    #             # End of IMAP server connection loop --->
-    #             continue
-
-              
-
-    #         # End of configuration section --->
-
-    #         continue
-    #     writeLog('info', 'script stopped ...', self.USERNAME)
-
-

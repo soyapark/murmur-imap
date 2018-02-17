@@ -2,10 +2,9 @@ from Log import *
 # from Utils import *
 
 class EmailQueue():
-    def __init__(self, imap, messages, full_when, action, folder):
+    def __init__(self, imap, messages, full_when, folder):
         self.imap = imap
         self.full_when = full_when
-        self.action = action
         self.folder = folder
         self.messages = messages
         self.messagesID = []
