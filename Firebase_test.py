@@ -70,13 +70,17 @@ class User():
         pass
 
 def pushMessage(path, message):
+    if not message:
+        return
+
     writeLog("info","Send a message to a server %s %s" % (path, message))
 
     db.child("/".join([p for p in path])).push(message)
 
-global execution_result, onArrive_func
+global execution_result, onArrive_func, onCustom_func
 execution_result = ""
 onArrive_func = ""
+onCustom_func = ""
 
 def interpret(uid, cmd, isMonitor):
     with User(inbox[uid]["monitor"]) as u, stdoutIO() as s:
@@ -86,7 +90,10 @@ def interpret(uid, cmd, isMonitor):
             u.monitor.send(to_address, subject, content)
 
             global execution_result
-            execution_result += "\nRequested email sent\n"
+            execution_result += "<br/>Requested email sent"
+
+        def markRead(messages, read):
+            u.monitor.markRead(messages, read)
 
         def onArrive(action, folders):
             writeLog("info", "Request for onArrive")
@@ -95,24 +102,25 @@ def interpret(uid, cmd, isMonitor):
             global onArrive_func
             onArrive_func = action
 
-            global execution_result
-            execution_result += "\nYour onArrive is successfully launched\n"
+            # global execution_result
+            # execution_result += 
+            print ("Your onArrive is successfully launched")
 
-        def onCustom(action, func, folders):
+        def onCustom(action, cond, folders):
             writeLog("info", "Request for onCustom")
 
-            u.monitor.installOnCustom(action, func, folders)
+            u.monitor.installOnCustom(action, cond, folders)
+            global onCustom_func
+            onCustom_func = action
 
-            global execution_result
-            execution_result += "\nYour onCustom is successfully launched\n"
+            print ("Your onCustom is successfully launched")
 
         def logout():
             #kill thread
             writeLog("info","Request for logout")
             u.monitor.logout()
 
-            global execution_result
-            execution_result += "\nYou're logged out shortly. Bye!\n"
+            print ("You're logged out shortly. Bye!")
 
         def renew():
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
@@ -147,48 +155,48 @@ def interpret(uid, cmd, isMonitor):
                             # TODO: Remove hard-coded IDLE timeout; place in config file
                             result = u.monitor.imap.idle_check() # sec
                             if result:
-                                u.monitor.imap.idle_done()
+                                with stdoutIO() as monitor_s:
+                                    u.monitor.imap.idle_done()
 
-                                # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
-                                newID = u.monitor.fetchLatestEmailID()
+                                    # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
+                                    newID = u.monitor.fetchLatestEmailID()
 
-                                # new mail
-                                if u.monitor.getLatestEmailID() != newID: 
-                                    writeLog('info', 'MURMUR: a new email has arrived', u.monitor.USERNAME)
+                                    # new mail
+                                    if u.monitor.getLatestEmailID() != newID: 
+                                        # writeLog('info', 'MURMUR: a new email has arrived', u.monitor.USERNAME)
+                                        print ('MURMUR: a new email has arrived', u.monitor.USERNAME)
 
-                                    # Increment newest email ID
-                                    u.monitor.setLatestEmailID( newID )
+                                        # Increment newest email ID
+                                        u.monitor.setLatestEmailID( newID )
 
-                                    # print "UID %s:*" % str(self.getLatestEmailID() + 1)
-                                    result = u.monitor.search( "UID %s:*" % str(u.monitor.getLatestEmailID() + 1) )
-                                    # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
-                                    response = u.monitor.imap.fetch(result, ['FLAGS'])
+                                        # print "UID %s:*" % str(self.getLatestEmailID() + 1)
+                                        result = u.monitor.search( "UID %s:*" % str(u.monitor.getLatestEmailID() + 1) )
+                                        # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
+                                        response = u.monitor.imap.fetch(result, ['FLAGS'])
 
-                                    # for msgid, data in response.items():
-                                    #     print('   ID %d: flags=%s' % (msgid,
-                                    #                                             data[b'FLAGS']))
-                                    # print ""
+                                        # for msgid, data in response.items():
+                                        #     print('   ID %d: flags=%s' % (msgid,
+                                        #                                             data[b'FLAGS']))
+                                        # print ""
 
-                                    global onArrive_func
-                                    writeLog("info", onArrive_func)
-                                    if onArrive_func:
-                                        writeLog ("info", "onArrive triggered")
-                                        if not u.monitor.QUEUE.push(newID): # do defined action
-                                            onArrive_func( u.monitor.QUEUE.messages )
+                                        global onArrive_func, onCustom_func
+                                        writeLog("info", onArrive_func)
+                                        if onArrive_func:
+                                            writeLog ("info", "onArrive triggered")
+                                            if not u.monitor.QUEUE.push(newID): # do defined action
+                                                onArrive_func( u.monitor.QUEUE.messages )
 
-                                    if u.monitor.onCustom:
-                                        print ("onCustom triggered")
-                                        if not u.monitor.QUEUE.push(newID): # do defined action
-                                            u.monitor.onCustom( u.monitor.QUEUE.messages ) # do defined action
+                                        if u.monitor.onCustom:
+                                            writeLog ("info","onCustom triggered")
+                                            if not u.monitor.QUEUE.push(newID): # do defined action
+                                                onCustom_func( u.monitor.QUEUE.messages ) # do defined action
 
+                                        data = {"type": "info", "content": monitor_s.getvalue()}
+                                        pushMessage(["messages", uid], data)
 
-                                    global execution_result
-                                    data = {"type": "info", "content": execution_result + s.getvalue()}
-                                    pushMessage(["messages", uid], data)
-
-                                else:
-                                    writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
-                                    result = u.monitor.search('UNSEEN')
+                                    else:
+                                        writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
+                                        result = u.monitor.search('UNSEEN')
 
                             else:
                                 u.monitor.imap.idle_done()
@@ -233,7 +241,7 @@ def interpret(uid, cmd, isMonitor):
                 exec( cmd, d, d)
 
                 global execution_result
-                data = {"type": "info", "content": execution_result + s.getvalue()}
+                data = {"type": "info", "content": s.getvalue()}
                 pushMessage(["messages", uid], data)
                 # db.child().child(uid).push(data)
                 
@@ -278,9 +286,10 @@ def stream_handler(message):
             
             server = monitor.imap
             
-            uid = message["path"][1:] # uid
+            uid = message["path"][1:].split("/")[0] # uid
 
-            # remove user auth info for sake of privacy
+            # remove user auth info for the sake of privacy
+            print (message["path"])
             db.child("users").child(message["path"][1:]).remove()
 
             if server == False:
@@ -303,7 +312,7 @@ def stream_handler(message):
             # send message to user it's ready to play with
 
         elif message["data"]["type"] == "cmd":
-            print ("New command Request", message["data"]["content"])
+            writeLog ("info", "New command Request", message["data"]["content"])
             
             interpret(message["data"]["uid"], message["data"]["content"], False)
 

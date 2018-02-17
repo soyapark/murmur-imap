@@ -16,6 +16,9 @@ class Mmail():
     def setSearch_criteria(self, search_criteria):
         self.search_criteria = search_criteria
 
+    def getIDs(self):
+        return self.imap.search( self.search_criteria )
+
     def getCount(self):
         writeLog ("info", "Mmail getCount(): " + self.search_criteria)
         messages = self.imap.search( self.search_criteria )

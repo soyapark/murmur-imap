@@ -41,7 +41,7 @@ class Monitor():
         if not self.imap:
             return False
 
-        folder = "murmur-test-all"
+        folder = "INBOX"
 
         self.selectFolder(folder)
         
@@ -65,6 +65,13 @@ class Monitor():
 
     def getLatestEmailID(self):
         return self.NEWEST_EMAIL_ID
+
+    def markRead(self, messages, read):
+        if read:
+            self.imap.add_flags(messages.getIDs(), '\\Seen')
+
+        else:
+            self.imap.removes_flags(messages.getIDs(), '\\Seen')
 
     def process_email(self, mail_, download_, log_):
         """Email processing to be done here. mail_ is the Mail object passed to this
