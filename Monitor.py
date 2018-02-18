@@ -66,13 +66,6 @@ class Monitor():
     def getLatestEmailID(self):
         return self.NEWEST_EMAIL_ID
 
-    def markRead(self, messages, read):
-        if read:
-            self.imap.add_flags(messages.getIDs(), '\\Seen')
-
-        else:
-            self.imap.removes_flags(messages.getIDs(), '\\Seen')
-
     def process_email(self, mail_, download_, log_):
         """Email processing to be done here. mail_ is the Mail object passed to this
         function. download_ is the path where attachments may be downloaded to.
@@ -142,6 +135,4 @@ class Monitor():
         self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
         self.onCustom = action
         writeLog('info', 'MURMUR: %s the onCustom has been successfully installed' % (self.USERNAME))
-    
-    def logout(self):
-        self.login = False
+

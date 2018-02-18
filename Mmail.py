@@ -25,6 +25,9 @@ class Mmail():
         # print (messages)
         return len(messages)
 
+    def getDate(self):
+        return self.getEmail('Date', True)
+
     def getFlags(self):
         messages = self.imap.search( self.search_criteria )
 
@@ -49,10 +52,11 @@ class Mmail():
     def getContent(self):
         return self.getEmail('To')
 
-    def getEmail(self, header):
+    def getEmail(self, header, inCludeID=False):
         unreads = self.getUnreadEmails()
 
         results = []
+        id_results = []
         messages = self.imap.search( self.search_criteria )
         # raw=email.message_from_bytes(data[0][1])
         response = self.imap.fetch(messages, ['BODY[HEADER]'])
@@ -65,10 +69,13 @@ class Mmail():
             # print (data[b'BODY[HEADER]'])
             msg = parser.parsestr(data[b'BODY[HEADER]'].decode("utf-8"))
             results.append( msg[header] )
+            id_results.append( (msgid, msg[header]) )
 
-        self.setSeen(False, unreads)
+        self.markRead(False, unreads)
+        if not inCludeID:
+            return results
 
-        return results
+        return id_results
 
     def getUnreadEmails(self):
         messages = self.imap.search( self.search_criteria )
@@ -86,9 +93,7 @@ class Mmail():
 
         return read_emails
 
-
-    
-    def setSeen(self, inIsSeen, inMsgs):
+    def markRead(self, inIsSeen, inMsgs):
         # if true, add SEEN flags
         if inIsSeen: 
             self.imap.set_flags(inMsgs, '\\Seen')            

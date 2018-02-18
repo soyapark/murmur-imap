@@ -19,7 +19,8 @@ import traceback
 # import ConfigParser
 import email
 from time import sleep 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+import calendar
 import sched, time
 
 from Auth import *
@@ -80,13 +81,14 @@ def pushMessage(path, message):
 
 global execution_result, onArrive_func, onCustom_func, sch_ontime
 execution_result = ""
-onArrive_func = ""
-onCustom_func = ""
 sch_ontime = sched.scheduler(time.time, time.sleep)
 
 def interpret(uid, cmd, isMonitor):
     with User(inbox[uid]["monitor"]) as u, stdoutIO() as s:
     
+        def search(search_creteria):
+            u.monitor.imap 
+
         def send(to_address, subject, content):
             writeLog("info","Request for sending email")
             u.monitor.send(to_address, subject, content)
@@ -95,14 +97,13 @@ def interpret(uid, cmd, isMonitor):
             execution_result += "<br/>Requested email sent"
 
         def markRead(messages, read):
-            u.monitor.markRead(messages, read)
+            messages.markRead(read, messages.getIDs())
 
         def onArrive(action, folders):
             writeLog("info", "Request for onArrive")
 
             u.monitor.installOnArrive(action, folders)
-            global onArrive_func
-            onArrive_func = action
+            inbox[uid]["onArrive_func"] = action
 
             # global execution_result
             # execution_result += 
@@ -112,28 +113,46 @@ def interpret(uid, cmd, isMonitor):
             writeLog("info", "Request for onCustom")
 
             u.monitor.installOnCustom(action, cond, folders)
-            global onCustom_func
-            onCustom_func = action
+            inbox[uid]["onCustom_func"] = action
 
             print ("Your onCustom is successfully launched")
 
         def onTime(action, interval):
+            print("info", "onTime triggered")
             global sch_ontime
             sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
             sch_ontime.run()
 
         def onTime_helper(action, interval, sc):
             # TODO: pass a pile of email 
-            action()
-            sch_ontime.enter(interval, 1, onTime_helper, (sc,))
+
+            # get uid of emails within interval
+            now = datetime.now()
+            before = now - timedelta(minutes = interval)
+
+            today_email = Mmail(u.monitor.imap, 'SINCE "%d-%s-%d"' % (before.day, calendar.month_abbr[before.month], before.year))
+            min_msgid = 99999
+            for msg in today_email.getDate():
+                msgid, t = msg
+                date_tuple = email.utils.parsedate_tz(t)
+                if date_tuple:
+                    local_date = datetime.fromtimestamp(
+                        email.utils.mktime_tz(date_tuple))
+
+                    if before < local_date and min_msgid > msgid:
+                        min_msgid = msgid
+
+            emails = Mmail(u.monitor.imap, "UID %d:*" % (min_msgid))
+            action(emails)
+            sch_ontime.enter(interval, 1, onTime_helper, (action, interval,sc,))
 
         def logout():
             #kill thread
             writeLog("info","Request for logout")
             db.child("running").child(uid).remove()
-            u.monitor.logout()
 
-            print ("You're logged out shortly. Bye!")
+            u.monitor.login = False
+            u.monitor.imap.logout()
 
         def renew():
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
@@ -154,10 +173,8 @@ def interpret(uid, cmd, isMonitor):
                 while True:
                     while True:
                         # <--- Start of IMAP server connection loop
-                        loop_cnt = 1
-
+                        
                         while True:
-                            loop_cnt = loop_cnt + 1
                             # <--- Start of mail monitoring loop
                             
                             writeLog('info', 'MURMUR: Start of mail monitoring loop', u.monitor.USERNAME)
@@ -201,17 +218,16 @@ def interpret(uid, cmd, isMonitor):
                                         #                                             data[b'FLAGS']))
                                         # print ""
 
-                                        global onArrive_func, onCustom_func
-                                        writeLog("info", onArrive_func)
-                                        if onArrive_func:
+
+                                        if inbox[uid]["onArrive_func"]:
                                             writeLog ("info", "onArrive triggered")
                                             if not u.monitor.QUEUE.push(newID): # do defined action
-                                                onArrive_func( u.monitor.QUEUE.messages )
+                                                inbox[uid]["onArrive_func"]( u.monitor.QUEUE.messages )
 
-                                        if u.monitor.onCustom:
+                                        if inbox[uid]["onCustom_func"]:
                                             writeLog ("info","onCustom triggered")
                                             if not u.monitor.QUEUE.push(newID): # do defined action
-                                                onCustom_func( u.monitor.QUEUE.messages ) # do defined action
+                                                inbox[uid]["onCustom_func"]( u.monitor.QUEUE.messages ) # do defined action
 
                                         data = {"type": "info", "content": monitor_s.getvalue()}
                                         pushMessage(["messages", uid], data)
@@ -237,6 +253,10 @@ def interpret(uid, cmd, isMonitor):
                 writeLog('info', 'script stopped ...', u.monitor.USERNAME)
               
             except Exception as e:
+                if not u.monitor.login:
+                    inbox[uid]["start"] = False
+                    return
+                    
                 etype, evalue = sys.exc_info()[:2]
                 estr = traceback.format_exception_only(etype, evalue)
                 logstr = 'Error during executing your code'
@@ -269,6 +289,10 @@ def interpret(uid, cmd, isMonitor):
                 # db.child().child(uid).push(data)
                 
             except Exception as e:
+                if not u.monitor.login:
+                    inbox[uid]["start"] = False
+                    return
+
                 etype, evalue = sys.exc_info()[:2]
                 estr = traceback.format_exception_only(etype, evalue)
                 logstr = 'Error during executing your code'
