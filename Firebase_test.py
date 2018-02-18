@@ -119,7 +119,7 @@ def interpret(uid, cmd, isMonitor):
             #kill thread
             writeLog("info","Request for logout")
             db.child("running").child(uid).remove()
-            u.monitor.logout()
+            # u.monitor.logout()
 
             print ("You're logged out shortly. Bye!")
 
