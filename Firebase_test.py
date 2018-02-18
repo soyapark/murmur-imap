@@ -118,6 +118,9 @@ def interpret(uid, cmd, isMonitor):
             print ("Your onCustom is successfully launched")
 
         def onTime(action, interval):
+            # convert min to sec
+            interval = interval * 60
+            
             print("info", "onTime triggered")
             global sch_ontime
             sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
