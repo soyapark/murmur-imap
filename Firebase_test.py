@@ -325,7 +325,7 @@ def stream_handler(message):
                 pushMessage(["messages", uid], data)
 
             # create a new monitor only when there is none.
-            if uid in inbox:
+            if not uid in inbox:
                 tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}, "cmd": ""}
                 inbox[uid] = tmp
 
