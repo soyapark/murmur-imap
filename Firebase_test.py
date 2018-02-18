@@ -125,6 +125,7 @@ def interpret(uid, cmd, isMonitor):
 
         def renew():
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
+            interpret(uid, cmd, False)
 
         if isMonitor:
             writeLog('info', '... script started', u.monitor.USERNAME)
