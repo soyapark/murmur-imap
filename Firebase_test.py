@@ -20,6 +20,7 @@ import traceback
 import email
 from time import sleep 
 from datetime import datetime, time
+import sched, time
 
 from Auth import *
 from EmailQueue import * 
@@ -77,10 +78,11 @@ def pushMessage(path, message):
 
     db.child("/".join([p for p in path])).push(message)
 
-global execution_result, onArrive_func, onCustom_func
+global execution_result, onArrive_func, onCustom_func, sch_ontime
 execution_result = ""
 onArrive_func = ""
 onCustom_func = ""
+sch_ontime = sched.scheduler(time.time, time.sleep)
 
 def interpret(uid, cmd, isMonitor):
     with User(inbox[uid]["monitor"]) as u, stdoutIO() as s:
@@ -115,6 +117,16 @@ def interpret(uid, cmd, isMonitor):
 
             print ("Your onCustom is successfully launched")
 
+        def onTime(action, interval):
+            global sch_ontime
+            sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
+            sch_ontime.run()
+
+        def onTime_helper(action, interval, sc):
+            # TODO: pass a pile of email 
+            action()
+            sch_ontime.enter(interval, 1, onTime_helper, (sc,))
+
         def logout():
             #kill thread
             writeLog("info","Request for logout")
@@ -125,9 +137,10 @@ def interpret(uid, cmd, isMonitor):
 
         def renew():
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
-
+            
             # reexecute code
-            interpret(uid, cmd, False)
+            writeLog("info", "Reexecute code")
+            interpret(uid, inbox[uid]["cmd"], False)
 
             # re-fork
             threading1 = Thread(target=interpret, args=[uid, "", True])
@@ -310,10 +323,11 @@ def stream_handler(message):
                 # send message to user auth success
                 data = {"code": 200, "auth": "Authentication Success."}
                 pushMessage(["messages", uid], data)
-                # db.child("messages").child(uid).push(data)
 
-            tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}, "cmd": ""}
-            inbox[uid] = tmp
+            # create a new monitor only when there is none.
+            if not inbox[uid]:
+                tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}, "cmd": ""}
+                inbox[uid] = tmp
 
             # ready.wait()
             # send message to user it's ready to play with
@@ -334,7 +348,6 @@ def stream_handler(message):
 writeLog("info", "Start stream")
 my_stream = db.child("users").stream(stream_handler)
 
-import sched, time
 s = sched.scheduler(time.time, time.sleep)
 
 def do_something(sc): 
