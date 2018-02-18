@@ -120,11 +120,13 @@ def interpret(uid, cmd, isMonitor):
         def onTime(action, interval):
             # convert min to sec
             interval = interval * 60
-            
+
             print("info", "onTime triggered")
             global sch_ontime
             sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
             sch_ontime.run()
+
+            print ("Your onTime is successfully launched")
 
         def onTime_helper(action, interval, sc):
             # TODO: pass a pile of email 
@@ -174,85 +176,74 @@ def interpret(uid, cmd, isMonitor):
 
             try: 
                 while True:
-                    while True:
-                        # <--- Start of IMAP server connection loop
-                        
-                        while True:
-                            # <--- Start of mail monitoring loop
-                            
-                            writeLog('info', 'MURMUR: Start of mail monitoring loop', u.monitor.USERNAME)
+                    # <--- Start of mail monitoring loop
+                    
+                    writeLog('info', 'MURMUR: Start of mail monitoring loop', u.monitor.USERNAME)
 
-                            if not u.monitor.login:
-                                writeLog('info', 'MURMUR: Logging out', u.monitor.USERNAME)
-                                u.monitor.imap.logout()
-                                return 
-                            
-                            # After all unread emails are cleared on initial login, start
-                            # monitoring the folder for new email arrivals and process 
-                            # accordingly. Use the IDLE check combined with occassional NOOP
-                            # to refresh. Should errors occur in this loop (due to loss of
-                            # connection), return control to IMAP server connection loop to
-                            # attempt restablishing connection instead of halting script.
-                            u.monitor.imap.idle()
-                            # TODO: Remove hard-coded IDLE timeout; place in config file
-                            result = u.monitor.imap.idle_check() # sec
-                            if result:
-                                with stdoutIO() as monitor_s:
-                                    u.monitor.imap.idle_done()
+                    if not u.monitor.login:
+                        writeLog('info', 'MURMUR: Logging out', u.monitor.USERNAME)
+                        u.monitor.imap.logout()
+                        return 
+                    
+                    # After all unread emails are cleared on initial login, start
+                    # monitoring the folder for new email arrivals and process 
+                    # accordingly. Use the IDLE check combined with occassional NOOP
+                    # to refresh. Should errors occur in this loop (due to loss of
+                    # connection), return control to IMAP server connection loop to
+                    # attempt restablishing connection instead of halting script.
+                    u.monitor.imap.idle()
+                    # TODO: Remove hard-coded IDLE timeout; place in config file
+                    result = u.monitor.imap.idle_check() # sec
+                    if result:
+                        with stdoutIO() as monitor_s:
+                            u.monitor.imap.idle_done()
 
-                                    # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
-                                    newID = u.monitor.fetchLatestEmailID()
+                            # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
+                            newID = u.monitor.fetchLatestEmailID()
 
-                                    # new mail
-                                    if u.monitor.getLatestEmailID() != newID: 
-                                        # writeLog('info', 'MURMUR: a new email has arrived', u.monitor.USERNAME)
-                                        print ('MURMUR: a new email has arrived', u.monitor.USERNAME)
+                            # new mail
+                            if u.monitor.getLatestEmailID() != newID: 
+                                # writeLog('info', 'MURMUR: a new email has arrived', u.monitor.USERNAME)
+                                print ('MURMUR: a new email has arrived', u.monitor.USERNAME)
 
-                                        # Increment newest email ID
-                                        u.monitor.setLatestEmailID( newID )
+                                # Increment newest email ID
+                                u.monitor.setLatestEmailID( newID )
 
-                                        # print "UID %s:*" % str(self.getLatestEmailID() + 1)
-                                        result = u.monitor.search( "UID %s:*" % str(u.monitor.getLatestEmailID() + 1) )
-                                        # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
-                                        response = u.monitor.imap.fetch(result, ['FLAGS'])
+                                # print "UID %s:*" % str(self.getLatestEmailID() + 1)
+                                result = u.monitor.search( "UID %s:*" % str(u.monitor.getLatestEmailID() + 1) )
+                                # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
+                                response = u.monitor.imap.fetch(result, ['FLAGS'])
 
-                                        # for msgid, data in response.items():
-                                        #     print('   ID %d: flags=%s' % (msgid,
-                                        #                                             data[b'FLAGS']))
-                                        # print ""
+                                # for msgid, data in response.items():
+                                #     print('   ID %d: flags=%s' % (msgid,
+                                #                                             data[b'FLAGS']))
+                                # print ""
 
 
-                                        if inbox[uid]["onArrive_func"]:
-                                            writeLog ("info", "onArrive triggered")
-                                            if not u.monitor.QUEUE.push(newID): # do defined action
-                                                inbox[uid]["onArrive_func"]( u.monitor.QUEUE.messages )
+                                if inbox[uid]["onArrive_func"]:
+                                    writeLog ("info", "onArrive triggered")
+                                    if not u.monitor.QUEUE.push(newID): # do defined action
+                                        inbox[uid]["onArrive_func"]( u.monitor.QUEUE.messages )
 
-                                        if inbox[uid]["onCustom_func"]:
-                                            writeLog ("info","onCustom triggered")
-                                            if not u.monitor.QUEUE.push(newID): # do defined action
-                                                inbox[uid]["onCustom_func"]( u.monitor.QUEUE.messages ) # do defined action
+                                if inbox[uid]["onCustom_func"]:
+                                    writeLog ("info","onCustom triggered")
+                                    if not u.monitor.QUEUE.push(newID): # do defined action
+                                        inbox[uid]["onCustom_func"]( u.monitor.QUEUE.messages ) # do defined action
 
-                                        data = {"type": "info", "content": monitor_s.getvalue()}
-                                        pushMessage(["messages", uid], data)
-
-                                    else:
-                                        writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
-                                        result = u.monitor.search('UNSEEN')
+                                data = {"type": "info", "content": monitor_s.getvalue()}
+                                pushMessage(["messages", uid], data)
 
                             else:
-                                u.monitor.imap.idle_done()
-                                u.monitor.imap.noop()
-                                writeLog('info', 'no new messages seen', u.monitor.USERNAME)
-                            # End of mail monitoring loop --->
-                            continue
-                        
+                                writeLog('info', 'MURMUR: user checks email', u.monitor.USERNAME)
+                                result = u.monitor.search('UNSEEN')
 
-                        # End of IMAP server connection loop --->
-                        continue
-
-                    # End of configuration section --->
-
-                    continue
+                    else:
+                        u.monitor.imap.idle_done()
+                        u.monitor.imap.noop()
+                        writeLog('info', 'no new messages seen', u.monitor.USERNAME)
+                    
+                    # End of mail monitoring loop --->
+                    
                 writeLog('info', 'script stopped ...', u.monitor.USERNAME)
               
             except Exception as e:
@@ -278,8 +269,8 @@ def interpret(uid, cmd, isMonitor):
                 renew()
 
             
-        else:
-            try: # exception handling for user code execution 
+        else: # code execution
+            try: 
                 inbox[uid]["cmd"] = cmd
                 db.child("running").child(uid).set(cmd)
 
