@@ -119,13 +119,20 @@ def interpret(uid, cmd, isMonitor):
             #kill thread
             writeLog("info","Request for logout")
             db.child("running").child(uid).remove()
-            # u.monitor.logout()
+            u.monitor.logout()
 
             print ("You're logged out shortly. Bye!")
 
         def renew():
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
+
+            # reexecute code
             interpret(uid, cmd, False)
+
+            # re-fork
+            threading1 = Thread(target=interpret, args=[uid, "", True])
+            threading1.daemon = True
+            threading1.start()
 
         if isMonitor:
             writeLog('info', '... script started', u.monitor.USERNAME)
@@ -229,8 +236,6 @@ def interpret(uid, cmd, isMonitor):
                 # Send this error msg to the user
                 data = {"type": "error", "content": logstr}
                 pushMessage(["messages", uid], data)
-
-                logout()
 
                 # reauthenticate
                 writeLog("info", "imap disconnected. Try reauthenticate")
