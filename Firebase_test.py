@@ -265,7 +265,7 @@ def interpret(uid, cmd, isMonitor):
                 pushMessage(["messages", uid], data)
 
                 # reauthenticate
-                writeLog("info", "imap disconnected. Try reauthenticate")
+                writeLog("info", "imap disconnected. Try reauthenticate", u.monitor.USERNAME)
                 renew()
 
             
