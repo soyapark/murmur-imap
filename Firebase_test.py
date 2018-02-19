@@ -220,12 +220,12 @@ def interpret(uid, cmd, isMonitor):
                                 # print ""
 
 
-                                if inbox[uid]["onArrive_func"]:
+                                if "onArrive_func" in inbox[uid]:
                                     writeLog ("info", "onArrive triggered")
                                     if not u.monitor.QUEUE.push(newID): # do defined action
                                         inbox[uid]["onArrive_func"]( u.monitor.QUEUE.messages )
 
-                                if inbox[uid]["onCustom_func"]:
+                                if "onCustom_func" in inbox[uid]:
                                     writeLog ("info","onCustom triggered")
                                     if not u.monitor.QUEUE.push(newID): # do defined action
                                         inbox[uid]["onCustom_func"]( u.monitor.QUEUE.messages ) # do defined action
@@ -265,7 +265,7 @@ def interpret(uid, cmd, isMonitor):
                 pushMessage(["messages", uid], data)
 
                 # reauthenticate
-                writeLog("info", "imap disconnected. Try reauthenticate", u.monitor.USERNAME)
+                writeLog("info", "imap disconnected. Try reauthenticate \n", u.monitor.USERNAME)
                 renew()
 
             
