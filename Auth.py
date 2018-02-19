@@ -21,7 +21,7 @@ class Auth():
         self.HOST = HOST
 
         ## Connect, login and select the INBOX
-        self.server = IMAPClient(self.HOST)
+        self.server = IMAPClient(self.HOST, use_uid=True)
 
         response = {}
         OAUTH = False

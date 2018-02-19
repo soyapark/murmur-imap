@@ -177,8 +177,6 @@ def interpret(uid, cmd, isMonitor):
             try: 
                 while True:
                     # <--- Start of mail monitoring loop
-                    
-                    writeLog('info', 'MURMUR: Start of mail monitoring loop', u.monitor.USERNAME)
 
                     if not u.monitor.login:
                         writeLog('info', 'MURMUR: Logging out', u.monitor.USERNAME)
@@ -192,6 +190,8 @@ def interpret(uid, cmd, isMonitor):
                     # connection), return control to IMAP server connection loop to
                     # attempt restablishing connection instead of halting script.
                     u.monitor.imap.idle()
+                    writeLog('info', 'MURMUR: IDLE- Start of mail monitoring loop', u.monitor.USERNAME)
+
                     # TODO: Remove hard-coded IDLE timeout; place in config file
                     result = u.monitor.imap.idle_check() # sec
                     if result:
