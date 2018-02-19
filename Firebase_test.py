@@ -22,6 +22,7 @@ from time import sleep
 from datetime import datetime, time, timedelta
 import calendar
 import sched, time
+from queue import * 
 
 from Auth import *
 from EmailQueue import * 
@@ -71,6 +72,19 @@ class User():
     def __exit__(self,  tp, value, traceback):
         pass
 
+class Timer_(object):
+    def __init__(self, time, uid, interval, action, repeat):
+        self.time = time
+        self.uid = uid
+        self.interval = interval
+        self.action = action
+        self.repeat = repeat
+
+        writeLog("info", 'Timer: new task added ' +  uid + " " + str(interval))
+
+    def __cmp__(self, other):
+        return cmp(self.time, other.time)
+
 def pushMessage(path, message):
     if not message:
         return
@@ -91,12 +105,20 @@ def interpret(uid, cmd, isMonitor):
 
         def send(to_address, subject, content):
             writeLog("info","Request for sending email")
+
+            # type checking
+            to_address = str(to_address)
+            subject = str(subject)
+            content = str(content)
+
             u.monitor.send(to_address, subject, content)
 
-            global execution_result
-            execution_result += "<br/>Requested email sent"
+            print ("Requested email sent")
 
         def markRead(messages, read):
+            if type(messages) is not Mmail:
+                raise Exception('markRead(): args messages has to be a Mmail instance')
+
             messages.markRead(read, messages.getIDs())
 
         def onArrive(action, folders):
@@ -105,8 +127,6 @@ def interpret(uid, cmd, isMonitor):
             u.monitor.installOnArrive(action, folders)
             inbox[uid]["onArrive_func"] = action
 
-            # global execution_result
-            # execution_result += 
             print ("Your onArrive is successfully launched")
 
         def onCustom(action, cond, folders):
@@ -117,14 +137,13 @@ def interpret(uid, cmd, isMonitor):
 
             print ("Your onCustom is successfully launched")
 
-        def onTime(action, interval):
-            # convert min to sec
-            interval = interval * 60
-
+        def onTime(action, minutes, seconds, hours):
             print("info", "onTime triggered")
-            global sch_ontime
-            sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
-            sch_ontime.run()
+
+            
+            # global sch_ontime
+            # sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
+            # sch_ontime.run()
 
             print ("Your onTime is successfully launched")
 
@@ -158,6 +177,28 @@ def interpret(uid, cmd, isMonitor):
 
             u.monitor.login = False
             u.monitor.imap.logout()
+
+        def repeat(doAction, minutes=None, seconds=None, hours=None):
+            interval = 0
+   
+            if minutes is not None and isinstance(minutes, (int, float, complex)):
+                # convert min to sec
+                interval = minutes * 60
+            elif seconds is not None and isinstance(seconds, (int, float, complex)): 
+                interval = seconds
+            elif hours is not None and isinstance(hours, (int, float, complex)):
+                interval = hours * 3600
+            else:
+                raise Exception('repeat(): args minutes|seconds|hours has to be a number')
+
+            if interval < 10:
+                raise Exception('repeat(): interval is too short! Please set larger than 10 sec')
+
+            now = datetime.now()
+            target_time = now + timedelta(seconds = interval)
+
+            global tasks
+            tasks.put( Timer_(target_time, uid, interval, doAction, repeat = True) )
 
         def renew():
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
@@ -271,11 +312,15 @@ def interpret(uid, cmd, isMonitor):
             
         else: # code execution
             try: 
-                inbox[uid]["cmd"] = cmd
-                db.child("running").child(uid).set(cmd)
+                if hasattr(cmd, '__call__'):
+                    cmd()
 
-                d = dict(locals(), **globals())
-                exec( cmd, d, d)
+                else:
+                    inbox[uid]["cmd"] = cmd
+                    db.child("running").child(uid).set(cmd)
+
+                    d = dict(locals(), **globals())
+                    exec( cmd, d, d)
 
                 global execution_result
                 data = {"type": "info", "content": s.getvalue()}
@@ -362,7 +407,36 @@ def stream_handler(message):
                 threading1.daemon = True
                 threading1.start()
 
+### START timer listener ###
+############################
 
+global tasks
+tasks = PriorityQueue()
+
+def timer_init():
+    while True:
+        if not tasks.empty() and tasks.queue[0].time < datetime.now():
+            t = tasks.get()
+            writeLog("info", "Timer event triggered")
+
+            interpret(t.uid, t.action, False)
+
+            if t.repeat:    # time, uid, interval, action, repeat
+                target_time = datetime.now() + timedelta(seconds = t.interval)
+                tasks.put( Timer_(target_time, t.uid, t.interval, t.action, True) )
+
+
+timer_thread = Thread(target=timer_init, args=[])
+timer_thread.daemon = True
+timer_thread.start()
+
+### END timer listener ###
+############################
+
+
+
+### START streaming for user-input ###
+############################
 writeLog("info", "Start stream")
 my_stream = db.child("users").stream(stream_handler)
 
@@ -381,3 +455,5 @@ def do_something(sc):
 
 s.enter(600, 1, do_something, (s,))
 s.run()
+### END streaming for user-input ###
+############################
