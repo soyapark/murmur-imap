@@ -82,8 +82,8 @@ class Timer_(object):
 
         writeLog("info", 'Timer: new task added ' +  uid + " " + str(interval))
 
-    def __cmp__(self, other):
-        return cmp(self.time, other.time)
+    def __lt__(self, other):
+        return self.time < other.time
 
 def pushMessage(path, message):
     if not message:
