@@ -193,7 +193,7 @@ def interpret(uid, cmd, isMonitor):
                     writeLog('info', 'MURMUR: IDLE- Start of mail monitoring loop', u.monitor.USERNAME)
 
                     # TODO: Remove hard-coded IDLE timeout; place in config file
-                    result = u.monitor.imap.idle_check() # sec
+                    result = u.monitor.imap.idle_check(60*30) # sec
                     if result:
                         with stdoutIO() as monitor_s:
                             u.monitor.imap.idle_done()
