@@ -204,8 +204,8 @@ def interpret(uid, cmd, isMonitor):
             u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
             
             # reexecute code
-            writeLog("info", "Reexecute code")
-            interpret(uid, inbox[uid]["cmd"], False)
+            # writeLog("info", "Reexecute code")
+            # interpret(uid, inbox[uid]["cmd"], False)
 
             # re-fork
             threading1 = Thread(target=interpret, args=[uid, "", True])
