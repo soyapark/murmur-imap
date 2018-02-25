@@ -12,7 +12,6 @@ from Oauth2 import *
 from EmailQueue import * 
 from Mmail import * 
 from Log import *
-from Utils import *
 
 # TODO: Support SMTP log handling for CRITICAL errors.
 

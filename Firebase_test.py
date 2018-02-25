@@ -27,7 +27,6 @@ from Conf import *
 from Auth import *
 from EmailQueue import * 
 from Cleanup import *
-from Utils import *
 
 @register_exit_fun
 def cleanup():
