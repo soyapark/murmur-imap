@@ -1,4 +1,5 @@
 from Log import *
+from Mmail import * 
 
 class EmailQueue():
     def __init__(self, imap, messages, full_when, folder):
@@ -7,11 +8,6 @@ class EmailQueue():
         self.folder = folder
         self.messages = messages
         self.messagesID = []
-
-    def push(self, emailID):
-        self.messagesID.append(emailID)
-
-        return not self.checkFull()
 
     def checkFull(self):
         if self.full_when(self.messages):
@@ -28,3 +24,11 @@ class EmailQueue():
 
         return False
             
+    def getMmail(self):
+        return self.messages
+
+    def push(self, emailID):
+        self.messagesID.append(emailID)
+
+        return not self.checkFull()
+        

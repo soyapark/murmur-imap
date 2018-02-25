@@ -61,12 +61,11 @@ class User():
         pass
 
 class Timer_(object):
-    def __init__(self, time, uid, interval, action, repeat):
+    def __init__(self, time, uid, interval, func_id):
         self.time = time
         self.uid = uid
         self.interval = interval
-        self.action = action
-        self.repeat = repeat
+        self.func_id = func_id
 
         writeLog("info", 'Timer: new task added ' +  uid + " " + str(interval))
 
@@ -78,13 +77,34 @@ class Arrival(object):
         pass
 
 
-global execution_result, onArrive_func, onCustom_func, sch_ontime
+global execution_result, sch_ontime
 execution_result = ""
 sch_ontime = sched.scheduler(time.time, time.sleep)
 
 def interpret(uid, cmd, isMonitor):
     with User(inbox[uid]["monitor"]) as u, stdoutIO() as s:
-    
+        def catch_exception(e):
+            if not u.monitor.login:
+                inbox[uid]["start"] = False
+                return
+                    
+            etype, evalue = sys.exc_info()[:2]
+            estr = traceback.format_exception_only(etype, evalue)
+            logstr = 'Error during executing your code'
+            for each in estr:
+                logstr += '{0}; '.format(each.strip('\n'))
+
+            logstr = "Execution error %s \n %s" % (str(e), logstr)
+            writeLog( "critical", logstr )
+
+            # Send this error msg to the user
+            data = {"type": "error", "content": logstr}
+            pushMessage(["messages", uid], data)
+
+            # reauthenticate
+            writeLog("info", "disconnect imap . Try reauthenticate \n", u.monitor.USERNAME)
+            renew()            
+
         def search(search_creteria):
             u.monitor.imap 
 
@@ -93,7 +113,7 @@ def interpret(uid, cmd, isMonitor):
 
             # type checking
             if to_address is None or len(str(to_address)) == 0:
-                raise Exception('send(): args to_addr must not be provided')
+                raise Exception('send(): args to_addr must be provided')
 
             to_address = str(to_address)
             subject = str(subject)
@@ -108,7 +128,7 @@ def interpret(uid, cmd, isMonitor):
             if type(messages) is not Mmail:
                 raise Exception('markRead(): args messages has to be a Mmail instance')
 
-            messages.markRead(read, messages.getIDs())
+            messages.mark_read(read, messages.get_IDs())
 
         def onArrive(action, folders):
             writeLog("info", "Request for onArrive")
@@ -135,28 +155,26 @@ def interpret(uid, cmd, isMonitor):
 
             print ("Your onTime is successfully launched")
 
-        def onTime_helper(action, interval, sc):
+        def onTime_helper(action, target_time, interval):
             # TODO: pass a pile of email 
 
             # get uid of emails within interval
             now = datetime.now()
-            before = now - timedelta(minutes = interval)
-
-            today_email = Mmail(u.monitor.imap, 'SINCE "%d-%s-%d"' % (before.day, calendar.month_abbr[before.month], before.year))
+            start_time = now - timedelta(seconds = interval) 
+            today_email = Mmail(u.monitor.imap, 'SINCE "%d-%s-%d"' % (start_time.day, calendar.month_abbr[start_time.month], start_time.year))
             min_msgid = 99999
-            for msg in today_email.getDate():
+            for msg in today_email.get_date():
                 msgid, t = msg
                 date_tuple = email.utils.parsedate_tz(t)
                 if date_tuple:
                     local_date = datetime.fromtimestamp(
                         email.utils.mktime_tz(date_tuple))
 
-                    if before < local_date and min_msgid > msgid:
+                    if start_time < local_date and min_msgid > msgid:
                         min_msgid = msgid
 
             emails = Mmail(u.monitor.imap, "UID %d:*" % (min_msgid))
             action(emails)
-            sch_ontime.enter(interval, 1, onTime_helper, (action, interval,sc,))
 
         def logout():
             #kill thread
@@ -165,6 +183,8 @@ def interpret(uid, cmd, isMonitor):
 
             u.monitor.login = False
             u.monitor.imap.logout()
+
+        
 
         def repeat(doAction, minutes=None, seconds=None, hours=None):
             interval = 0
@@ -185,14 +205,18 @@ def interpret(uid, cmd, isMonitor):
             now = datetime.now()
             target_time = now + timedelta(seconds = interval)
 
-            global tasks
-            tasks.put( Timer_(target_time, uid, interval, doAction, repeat = True) )
+            inbox[uid]["monitor"].installRepeat(doAction, target_time, interval)
+
+            # global tasks
+            # tasks.put( Timer_(target_time, uid, interval, inbox[uid]["monitor"].repeat["id"]) )
+
+            print ("Your repeat() is successfully launched")
 
         def renew():
             if hasattr(u.monitor, 'OAUTH'):
                 u.monitor.authenticate_oauth()
             else:
-                u.authenticate_plain()
+                u.monitor.authenticate_plain()
 
             # reexecute code
             # writeLog("info", "Reexecute code")
@@ -225,7 +249,7 @@ def interpret(uid, cmd, isMonitor):
                     writeLog('info', 'MURMUR: IDLE- Start of mail monitoring loop', u.monitor.USERNAME)
 
                     # TODO: Remove hard-coded IDLE timeout; place in config file
-                    result = u.monitor.imap.idle_check(60*30) # sec
+                    result = u.monitor.imap.idle_check(30) # sec
                     if result:
                         with stdoutIO() as monitor_s:
                             u.monitor.imap.idle_done()
@@ -252,15 +276,16 @@ def interpret(uid, cmd, isMonitor):
                                 # print ""
 
 
-                                if "onArrive_func" in inbox[uid]:
+                                if inbox[uid]["monitor"].arrive:
                                     writeLog ("info", "onArrive triggered")
-                                    if not u.monitor.QUEUE.push(newID): # do defined action
-                                        inbox[uid]["onArrive_func"]( u.monitor.QUEUE.messages )
-
-                                if "onCustom_func" in inbox[uid]:
+                                    inbox[uid]["monitor"].arrive["action"]( Mmail(inbox[uid]["monitor"].imap), "UID " + newID ) # do defined action
+                                    
+                                if inbox[uid]["monitor"].custom:
                                     writeLog ("info","onCustom triggered")
-                                    if not u.monitor.QUEUE.push(newID): # do defined action
-                                        inbox[uid]["onCustom_func"]( u.monitor.QUEUE.messages ) # do defined action
+
+                                    if not inbox[uid]["monitor"].custom["queue"].push(newID): # do defined action
+                                        inbox[uid]["monitor"].custom["action"]( inbox[uid]["monitor"].custom["queue"].getMmail() ) # do defined action
+
 
                                 data = {"type": "info", "content": monitor_s.getvalue()}
                                 pushMessage(["messages", uid], data)
@@ -274,37 +299,39 @@ def interpret(uid, cmd, isMonitor):
                         u.monitor.imap.noop()
                         writeLog('info', 'no new messages seen', u.monitor.USERNAME)
                     
+                    if inbox[uid]["monitor"].time and inbox[uid]["monitor"].time["target_time"] < datetime.now():
+                        writeLog('info', 'onTime triggered')
+                        
+                        try: 
+                            onTime_helper(inbox[uid]["monitor"].time["action"], inbox[uid]["monitor"].time["target_time"], inbox[uid]["monitor"].time["interval"])
+                        except Exception as e:
+                            catch_exception(e)
+
+                        inbox[uid]["monitor"].time = ''
+
+                    if inbox[uid]["monitor"].repeat and inbox[uid]["monitor"].repeat["target_time"] < datetime.now():
+                        writeLog('info', 'repeat triggered')
+                        
+                        try:
+                            onTime_helper(inbox[uid]["monitor"].repeat["action"], inbox[uid]["monitor"].repeat["target_time"], inbox[uid]["monitor"].repeat["interval"])
+
+                            inbox[uid]["monitor"].repeat["target_time"] = datetime.now() + timedelta(seconds=inbox[uid]["monitor"].repeat["interval"])
+                        except Exception as e:
+                            catch_exception(e)
+
                     # End of mail monitoring loop --->
                     
                 writeLog('info', 'script stopped ...', u.monitor.USERNAME)
               
             except Exception as e:
-                if not u.monitor.login:
-                    inbox[uid]["start"] = False
-                    return
-                    
-                etype, evalue = sys.exc_info()[:2]
-                estr = traceback.format_exception_only(etype, evalue)
-                logstr = 'Error during executing your code'
-                for each in estr:
-                    logstr += '{0}; '.format(each.strip('\n'))
-
-                logstr = "Execution error %s \n %s" % (str(e), logstr)
-                writeLog( "critical", logstr )
-
-                # Send this error msg to the user
-                data = {"type": "error", "content": logstr}
-                pushMessage(["messages", uid], data)
-
-                # reauthenticate
-                writeLog("info", "imap disconnected. Try reauthenticate \n", u.monitor.USERNAME)
-                renew()
+                catch_exception(e)
 
             
         else: # code execution
             try: 
-                if hasattr(cmd, '__call__'):
-                    cmd()
+                if "action" in cmd and hasattr(cmd["action"], '__call__'): #repeat, onTime
+                    onTime_helper(cmd["action"], cmd["start_time"])
+                    return True
 
                 else:
                     inbox[uid]["cmd"] = cmd
@@ -313,7 +340,6 @@ def interpret(uid, cmd, isMonitor):
                     d = dict(locals(), **globals())
                     exec( cmd, d, d)
 
-                global execution_result
                 data = {"type": "info", "content": s.getvalue()}
                 pushMessage(["messages", uid], data)
                 # db.child().child(uid).push(data)
@@ -339,6 +365,8 @@ def interpret(uid, cmd, isMonitor):
 
                 # Tell the client execution has been stopped
                 db.child("running").child(uid).remove()
+
+                return False
 
 
 def stream_handler(message):
@@ -407,8 +435,10 @@ def stream_handler(message):
                 threading1.daemon = True
                 threading1.start()
 
+
+
 ### START timer listener ###
-############################
+############################ 
 
 global tasks
 tasks = PriorityQueue()
@@ -417,13 +447,28 @@ def timer_init():
     while True:
         if not tasks.empty() and tasks.queue[0].time < datetime.now():
             t = tasks.get()
-            writeLog("info", "Timer event triggered")
 
-            interpret(t.uid, t.action, False)
+            if t.uid not in inbox:
+                continue
 
-            if t.repeat:    # time, uid, interval, action, repeat
-                target_time = datetime.now() + timedelta(seconds = t.interval)
-                tasks.put( Timer_(target_time, t.uid, t.interval, t.action, True) )
+            # if this task is repeat func
+            if inbox[t.uid]["monitor"].repeat and t.func_id == inbox[t.uid]["monitor"].repeat["id"]:
+                # if there is error during executing code, don't add to a queue
+                start_time = datetime.now() - timedelta(seconds = t.interval)
+                time_obj= {"action": inbox[t.uid]["monitor"].repeat["action"], "start_time":start_time}
+                if interpret(t.uid, time_obj, False):    # time, uid, interval, func_id
+                    target_time = datetime.now() + timedelta(seconds = t.interval)
+                    tasks.put( Timer_(target_time, t.uid, t.interval, t.func_id) )
+
+            elif inbox[t.uid]["monitor"].time and t.func_id == inbox[t.uid]["monitor"].time["id"]:
+                start_time = datetime.now() - timedelta(seconds = t.interval)
+                time_obj= {"action": inbox[t.uid]["monitor"].time["action"], "start_time":start_time}
+                interpret(t.uid, time_obj, False)   
+
+            else: 
+                continue
+
+            writeLog("info", "Timer event triggered")            
 
 
 timer_thread = Thread(target=timer_init, args=[])

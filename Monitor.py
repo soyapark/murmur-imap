@@ -7,6 +7,8 @@ import traceback
 import email
 from time import sleep
 from datetime import datetime, time
+import random 
+import string
 
 from Oauth2 import *
 from EmailQueue import * 
@@ -19,10 +21,12 @@ class Monitor():
     def __init__(self, USERNAME, PASSWORD, HOST, IS_OAUTH=False):
         # self.imap = imap
         self.NEWEST_EMAIL_ID = -1
+        
+        self.arrival = '' # {id: ~, action: ~}
+        self.custom = '' # {id" ~, action: ~, cond: ~}
+        self.time = '' # {id: ~, action: ~, time: ~}
+        self.repeat = '' # {id: ~, action: ~, interval: ~}
 
-        self.QUEUE = []
-        self.onArrive = ''
-        self.onCustom = ''
         # self.ready = ready
         self.emails = [] # list to store old email IDs
         self.login = True
@@ -50,6 +54,12 @@ class Monitor():
         else: 
             response = self.OAUTH.refresh_token(self.REFRESH_TOKEN)
             self.imap.oauth2_login(self.USERNAME, response['access_token'])
+
+        folder = "INBOX"
+
+        self.selectFolder(folder)
+        
+        self.setLatestEmailID(self.fetchLatestEmailID())
 
     def authenticate_plain(self):
         ## Connect, login and select the INBOX
@@ -134,25 +144,25 @@ class Monitor():
         writeLog ("info", "Set Last email is " + str(inID))
         self.NEWEST_EMAIL_ID = inID
 
-    def installOnArrive(self, action, folder):
-        incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
-        # print ("onCustom generate" + incoming_emails)
-        m = Mmail(self.imap, incoming_emails)
+    def generate_random_ID(self):
+        return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
-        def full_when(x):
-            return True
-        self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
-        self.onArrive = action
+    def installOnArrive(self, action):
+        self.arrival = {"id": self.generate_random_ID(), "action": action}
+        
         writeLog('info', 'MURMUR: %s the onArrive has been successfully installed' % (self.USERNAME))
         
-    # Digest and give notifation only for N emails 
     def installOnCustom(self, action, full_when, folder):
-        if full_when == None:
-            return "Raise error"
-        
         incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
-        # print ("onCustom generate" + incoming_emails)
         m = Mmail(self.imap, incoming_emails)
-        self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
-        self.onCustom = action
+
+        self.custom = {"id": self.generate_random_ID(), "action": action, "cond": full_when, "queue": EmailQueue(self.imap, m, full_when, folder)}
         writeLog('info', 'MURMUR: %s the onCustom has been successfully installed' % (self.USERNAME))
+
+    def installOnTime(self, action, target_time, interval):
+        self.time = {"id": self.generate_random_ID(), "action": action, "target_time": target_time, "interval": interval}
+        writeLog('info', 'MURMUR: %s the onTime has been successfully installed' % (self.USERNAME))
+
+    def installRepeat(self, action, target_time, interval):
+        self.repeat = {"id": self.generate_random_ID(), "action": action, "target_time": target_time, "interval": interval}
+        writeLog('info', 'MURMUR: %s the repeat has been successfully installed' % (self.USERNAME))
