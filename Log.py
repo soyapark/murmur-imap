@@ -1,6 +1,7 @@
 import sys
 import logging
 from logging.handlers import RotatingFileHandler
+from Conf import * 
 
 # Setup the log handlers to stdout and file.
 log = logging.getLogger('imap_monitor')
@@ -29,11 +30,17 @@ handler_file.setLevel(logging.DEBUG)
 handler_file.setFormatter(formatter)
 log.addHandler(handler_file)
 
-
-
 def writeLog(type, content, USERNAME=""):
     if type == "info":
         log.info("%s ; %s" % (content, USERNAME))
 
     else:
         log.critical("%s ; %s" % (content, USERNAME))
+
+def pushMessage(path, message):
+    if not message:
+        return
+
+    writeLog("info","Send a message to a server %s %s" % (path, message))
+
+    db.child("/".join([p for p in path])).push(message)

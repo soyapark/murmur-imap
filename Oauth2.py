@@ -20,9 +20,11 @@ import json
 from optparse import OptionParser
 import smtplib
 import sys
-import urllib
+from urllib.request import urlopen
+import urllib.parse
 import webbrowser
 from datetime import datetime, timedelta
+from Conf import *
 
 class Oauth2():
   # The URL root for accessing Google Accounts.
@@ -35,16 +37,12 @@ class Oauth2():
   TOKEN_EXPIRED_TIME = None
 
   def __init__(self):
-    REFRESH_TOKEN = None
-
-    
-    
-    # if options.refresh_token:
+    # if "refresh_token" in options:
     #   response = RefreshToken(options.client_id, options.client_secret,
     #                           options.refresh_token)
-    #   print 'Access Token: %s' % response['access_token']
-    #   print 'Access Token Expiration Seconds: %s' % response['expires_in']
-    # elif options.generate_oauth2_string:
+    #   print ('Access Token: %s' % response['access_token'])
+    #   print ('Access Token Expiration Seconds: %s' % response['expires_in'])
+    # elif "generate_oauth2_string" in options:
     #   RequireOptions(options, 'user', 'access_token')
     #   print ('OAuth2 argument:\n' +
     #          GenerateOAuth2String(options.user, options.access_token))
@@ -63,6 +61,7 @@ class Oauth2():
     #   options_parser.print_help()
     #   print 'Nothing to do, exiting.'
     #   return
+    pass
 
   def isExpired(self): 
     if not self.TOKEN_EXPIRED_TIME:
@@ -76,13 +75,9 @@ class Oauth2():
   def setExpiredTime(self, inTime):
     TOKEN_EXPIRED_TIME = inTime
 
-  def refresh_token(self, options):
-    if not self.isExpired():
-      # skip refreshing if it is not yet expired
-      return
-
-    response = self.RefreshToken(options['client_id'], options['client_secret'],
-                            options['refresh_token'])
+  def refresh_token(self, refresh_token):
+    response = self.RefreshToken(CLIENT_ID, CLIENT_SECRET,
+                            refresh_token)
 
     # self.setExpiredTime( datetime.now() + timedelta(seconds=response['expires_in'] - 5) )
 
@@ -90,16 +85,9 @@ class Oauth2():
     print ('Access Token Expiration Seconds: %s' % response['expires_in'])
 
     return response
-
-  def generate_oauth2_token(self, options):
-    print (options)
-    print ('To authorize token, visit this url and copy verification code below:')
-    # TODO press any key to route to the website
-    print ('  %s' % self.GeneratePermissionUrl(options['client_id']))
-    # webbrowser.open(self.GeneratePermissionUrl(options.client_id, options.scope), new=2)
-
-    authorization_code = raw_input('Enter verification code: ')
-    response = self.AuthorizeTokens(options['client_id'], options['client_secret'],
+    
+  def generate_oauth2_token(self, authorization_code):
+    response = self.AuthorizeTokens(CLIENT_ID, CLIENT_SECRET,
                                   authorization_code)
 
     REFRESH_TOKEN = response['refresh_token']
@@ -122,7 +110,7 @@ class Oauth2():
 
   def UrlEscape(self, text):
     # See OAUTH 5.1 for a definition of which characters need to be escaped.
-    return urllib.quote(text, safe='~-._')
+    return urllib.parse.quote(text, safe='~-._')
 
 
   def UrlUnescape(self, text):
@@ -138,12 +126,12 @@ class Oauth2():
       A URL query string version of the given parameters.
     """
     param_fragments = []
-    for param in sorted(params.iteritems(), key=lambda x: x[0]):
+    for param in sorted(params.items(), key=lambda x: x[0]):
       param_fragments.append('%s=%s' % (param[0], self.UrlEscape(param[1])))
     return '&'.join(param_fragments)
 
 
-  def GeneratePermissionUrl(self, client_id, scope='https://mail.google.com/'):
+  def GeneratePermissionUrl(self):
     """Generates the URL for authorizing access.
     This uses the "OAuth2 for Installed Applications" flow described at
     https://developers.google.com/accounts/docs/OAuth2InstalledApp
@@ -153,15 +141,18 @@ class Oauth2():
     Returns:
       A URL that the user should visit in their browser.
     """
+
+    scope='https://mail.google.com/'
+
     params = {}
-    params['client_id'] = client_id
+    params['client_id'] = CLIENT_ID
     params['redirect_uri'] = self.REDIRECT_URI
     params['scope'] = scope
     params['response_type'] = 'code'
     return '%s?%s' % (self.AccountsUrl('o/oauth2/auth'),
                       self.FormatUrlParams(params))
 
-  def RefreshToken(self, client_id, client_secret, refresh_token):
+  def RefreshToken(self, refresh_token):
     """Obtains a new token given a refresh token.
     See https://developers.google.com/accounts/docs/OAuth2InstalledApp#refresh
     Args:
@@ -173,14 +164,14 @@ class Oauth2():
       fields include 'access_token', 'expires_in', and 'refresh_token'.
     """
     params = {}
-    params['client_id'] = client_id
-    params['client_secret'] = client_secret
+    params['client_id'] = CLIENT_ID
+    params['client_secret'] = CLIENT_SECRET
     params['refresh_token'] = refresh_token
     params['grant_type'] = 'refresh_token'
     request_url = self.AccountsUrl('o/oauth2/token')
 
-    response = urllib.urlopen(request_url, urllib.urlencode(params)).read()
-    return json.loads(response)
+    response = urlopen(request_url, urllib.parse.urlencode(params).encode("utf-8")).read()
+    return json.loads(response.decode('utf-8'))
 
   def AuthorizeTokens(self, client_id, client_secret, authorization_code):
     """Obtains OAuth access token and refresh token.
@@ -203,8 +194,8 @@ class Oauth2():
     params['grant_type'] = 'authorization_code'
     request_url = self.AccountsUrl('o/oauth2/token')
 
-    response = urllib.urlopen(request_url, urllib.urlencode(params)).read()
-    return json.loads(response)
+    response = urlopen(request_url, urllib.parse.urlencode(params).encode("utf-8")).read()
+    return json.loads(response.decode('utf-8'))
 
   def GenerateOAuth2String(self, username, access_token, base64_encode=True):
     """Generates an IMAP OAuth2 authentication string.
@@ -250,54 +241,5 @@ class Oauth2():
     smtp_conn.ehlo('test')
     smtp_conn.starttls()
     smtp_conn.docmd('AUTH', 'XOAUTH2 ' + base64.b64encode(auth_string))
-
-
-
-def SetupOptionParser():
-  # Usage message is the module's docstring.
-  parser = OptionParser(usage=__doc__)
-  parser.add_option('--generate_oauth2_token',
-                    action='store_true',
-                    dest='generate_oauth2_token',
-                    help='generates an OAuth2 token for testing')
-  parser.add_option('--generate_oauth2_string',
-                    action='store_true',
-                    dest='generate_oauth2_string',
-                    help='generates an initial client response string for '
-                         'OAuth2')
-  parser.add_option('--client_id',
-                    default=None,
-                    help='Client ID of the application that is authenticating. '
-                         'See OAuth2 documentation for details.')
-  parser.add_option('--client_secret',
-                    default=None,
-                    help='Client secret of the application that is '
-                         'authenticating. See OAuth2 documentation for '
-                         'details.')
-  parser.add_option('--access_token',
-                    default=None,
-                    help='OAuth2 access token')
-  parser.add_option('--refresh_token',
-                    default=None,
-                    help='OAuth2 refresh token')
-  parser.add_option('--scope',
-                    default='https://mail.google.com/',
-                    help='scope for the access token. Multiple scopes can be '
-                         'listed separated by spaces with the whole argument '
-                         'quoted.')
-  parser.add_option('--test_imap_authentication',
-                    action='store_true',
-                    dest='test_imap_authentication',
-                    help='attempts to authenticate to IMAP')
-  parser.add_option('--test_smtp_authentication',
-                    action='store_true',
-                    dest='test_smtp_authentication',
-                    help='attempts to authenticate to SMTP')
-  parser.add_option('--user',
-                    default=None,
-                    help='email address of user whose account is being '
-                         'accessed')
-  return parser
-
 
   

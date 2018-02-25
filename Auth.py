@@ -4,18 +4,19 @@
 
 from imapclient import IMAPClient
 # from backports import ssl
-from Oauth2 import Oauth2
+from Oauth2 import *
 import sys
 import email
 from email import message
 import sys 
 from threading import Event, Thread
 from Log import * 
+from Conf import * 
 
 class Auth(): 
     #context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
 
-    def __init__(self, USERNAME, PASSWORD, HOST):
+    def __init__(self, USERNAME, PASSWORD, HOST, OAUTH, REFRESH_TOKEN=None):
         self.USERNAME = USERNAME
         self.PASSWORD = PASSWORD
         self.HOST = HOST
@@ -24,20 +25,18 @@ class Auth():
         self.server = IMAPClient(self.HOST, use_uid=True)
 
         response = {}
-        OAUTH = False
         DEBUG_AUTH = True
 
         if OAUTH:
             options = {}
             options['generate_oauth2_token'] = True
-            options['client_id'] = self.client_id
-            options['client_secret'] = self.client_secret
+            options['client_id'] = CLIENT_ID
+            options['client_secret'] = CLIENT_SECRET
 
-            oauth = Oauth2()
+            oauth = Oauth2(options)
 
-            if DEBUG_AUTH:
-                response = oauth.generate_oauth2_token(options)
-                options['refresh_token'] = response['refresh_token']
+            if REFRESH_TOKEN is None:
+                self.token_url = oauth.GeneratePermissionUrl()
 
             else:
                 options['refresh_token'] = "1/IOkqlvDe9M0BMTTSkn1VFFIseSR-1TVAKiDRCtowkx8u9fpKrsKkQluBLMLO-vPB"

@@ -1,4 +1,3 @@
-import pyrebase
 from Auth import Auth
 from threading import Event, Thread
 from Monitor import *
@@ -24,21 +23,11 @@ import calendar
 import sched, time
 from queue import * 
 
+from Conf import *
 from Auth import *
 from EmailQueue import * 
 from Cleanup import *
-          
-
-config = {
-  "apiKey": "###",
-  "authDomain": "murmur-183618.firebaseapp.com",
-  "databaseURL": "https://murmur-183618.firebaseio.com",
-  "storageBucket": "murmur-183618.appspot.com",
-  "serviceAccount": "cert/murmur-firebase.json"
-}
-
-firebase = pyrebase.initialize_app(config)
-db = firebase.database()
+from Utils import *
 
 @register_exit_fun
 def cleanup():
@@ -57,7 +46,7 @@ def stdoutIO(stdout=None):
     yield stdout
     sys.stdout = old
 
-inbox = {}
+inbox = {} # uid: {"monitor": ~, "auth_info": ~, "cmd": ~}
 
 class User():
     def __init__(self, monitor):
@@ -85,13 +74,10 @@ class Timer_(object):
     def __lt__(self, other):
         return self.time < other.time
 
-def pushMessage(path, message):
-    if not message:
-        return
+class Arrival(object):
+    def __init__(self, uid, action):
+        pass
 
-    writeLog("info","Send a message to a server %s %s" % (path, message))
-
-    db.child("/".join([p for p in path])).push(message)
 
 global execution_result, onArrive_func, onCustom_func, sch_ontime
 execution_result = ""
@@ -107,13 +93,17 @@ def interpret(uid, cmd, isMonitor):
             writeLog("info","Request for sending email")
 
             # type checking
+            if to_address is None or len(str(to_address)) == 0:
+                raise Exception('send(): args to_addr must not be provided')
+
             to_address = str(to_address)
             subject = str(subject)
             content = str(content)
 
             u.monitor.send(to_address, subject, content)
 
-            print ("Requested email sent")
+            writeLog ("info", "Requested email sent")
+            print ("Email has been sent")
 
         def markRead(messages, read):
             if type(messages) is not Mmail:
@@ -137,9 +127,8 @@ def interpret(uid, cmd, isMonitor):
 
             print ("Your onCustom is successfully launched")
 
-        def onTime(action, minutes, seconds, hours):
+        def onTime(doAction, minutes=None, seconds=None, hours=None):
             print("info", "onTime triggered")
-
             
             # global sch_ontime
             # sch_ontime.enter(interval, 1, onTime_helper, (action, interval, sch_ontime,))
@@ -201,8 +190,11 @@ def interpret(uid, cmd, isMonitor):
             tasks.put( Timer_(target_time, uid, interval, doAction, repeat = True) )
 
         def renew():
-            u.monitor = Monitor(inbox[uid]["auth_info"]["username"], inbox[uid]["auth_info"]["password"], 'imap.gmail.com') 
-            
+            if hasattr(u.monitor, 'OAUTH'):
+                u.monitor.authenticate_oauth()
+            else:
+                u.authenticate_plain()
+
             # reexecute code
             # writeLog("info", "Reexecute code")
             # interpret(uid, inbox[uid]["cmd"], False)
@@ -363,21 +355,38 @@ def stream_handler(message):
     if "type" in message["data"]:
         # print ("hello")
 
-        if message["data"]["type"] == "auth":
+        if message["data"]["type"] == "auth" or message["data"]["type"] == "oauth":
             writeLog("info", "auth request", message["data"]["username"])
-            monitor = Monitor(message["data"]["username"], message["data"]["password"], 'imap.gmail.com')
-            
-            server = monitor.imap
-            
             uid = message["path"][1:].split("/")[0] # uid
+            monitor = "" # monitor instance
 
-            # remove user auth info for the sake of privacy
-            print (message["path"])
-            db.child("users").child(message["path"][1:]).remove()
+            if message["data"]["type"] == "auth": 
+                monitor = Monitor(message["data"]["username"], message["data"]["password"], 'imap.gmail.com', False)
 
-            if server == False:
+                # remove user auth info for the sake of privacy
+                db.child("users").child(message["path"][1:]).remove()
+
+                # create a new monitor only when there is none.
+                if monitor.imap and not uid in inbox:
+                    tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}, "cmd": ""}
+                    inbox[uid] = tmp
+
+            else: # oauth
+                monitor = Monitor(message["data"]["username"], message["data"]["code"], 'imap.gmail.com', True)
+
+                try:
+                    monitor.authenticate_oauth(message["data"]["code"])
+
+                    # create a new monitor only when there is none.
+                    if not uid in inbox:
+                        tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "refresh_token": monitor.REFRESH_TOKEN, "cmd": ""}}
+                        inbox[uid] = tmp
+                except Exception:
+                    monitor.imap = False
+
+            if monitor.imap == False:
                 # send message to user auth fail
-                data = {"code": 403, "auth": "Authentication Fail. Is it correct username/password?"}
+                data = {"code": 403, "auth": "Fail to log in."}
                 pushMessage(["messages", uid], data)
                 # db.child("messages").child(uid).push(data)
                 return
@@ -386,15 +395,7 @@ def stream_handler(message):
                 # send message to user auth success
                 data = {"code": 200, "auth": "Authentication Success."}
                 pushMessage(["messages", uid], data)
-
-            # create a new monitor only when there is none.
-            if not uid in inbox:
-                tmp = {"monitor": monitor, "start": False, "auth_info": {"type": "plain", "username": message["data"]["username"], "password": message["data"]["password"]}, "cmd": ""}
-                inbox[uid] = tmp
-
-            # ready.wait()
-            # send message to user it's ready to play with
-
+            
         elif message["data"]["type"] == "cmd":
             writeLog ("info", "New command Request", message["data"]["content"])
             

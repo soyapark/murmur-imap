@@ -40,16 +40,16 @@ class Mmail():
 
         return flags
 
-    def getSubject(self):
+    def getSubjects(self):
         return self.getEmail('Subject')
 
-    def getSender(self):
+    def getSenders(self):
         return self.getEmail('From')
 
-    def getRecipient(self):
+    def getRecipients(self):
         return self.getEmail('To')
 
-    def getContent(self):
+    def getContents(self):
         return self.getEmail('To')
 
     def getEmail(self, header, inCludeID=False):

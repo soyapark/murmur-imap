@@ -8,7 +8,7 @@ import email
 from time import sleep
 from datetime import datetime, time
 
-from Auth import *
+from Oauth2 import *
 from EmailQueue import * 
 from Mmail import * 
 from Log import *
@@ -17,7 +17,7 @@ from Utils import *
 # TODO: Support SMTP log handling for CRITICAL errors.
 
 class Monitor(): 
-    def __init__(self, USERNAME, PASSWORD, HOST):
+    def __init__(self, USERNAME, PASSWORD, HOST, IS_OAUTH=False):
         # self.imap = imap
         self.NEWEST_EMAIL_ID = -1
 
@@ -31,15 +31,37 @@ class Monitor():
         self.USERNAME = USERNAME
         self.PASSWORD = PASSWORD
         self.HOST = HOST
+        
+        if IS_OAUTH: #wait for access code from the user side
+            self.OAUTH = Oauth2()
+        
+        else:  # plain username/password
+            self.authenticate_plain()
 
-        self.authenticate()
+    def authenticate_oauth_pre(self):
+        return self.OAUTH.GeneratePermissionUrl()
 
-    def authenticate(self):
-        self.auth = Auth(self.USERNAME, self.PASSWORD, self.HOST)
-        self.imap = self.auth.getServer()
+    def authenticate_oauth(self, code):
+        self.imap = IMAPClient(self.HOST, use_uid=True)
 
-        if not self.imap:
-            return False
+        if not hasattr(self, 'REFRESH_TOKEN'):
+            response = self.OAUTH.generate_oauth2_token(code)
+            self.REFRESH_TOKEN = response['refresh_token']
+            self.imap.oauth2_login(self.USERNAME, response['access_token'])
+        else: 
+            response = self.OAUTH.refresh_token(self.REFRESH_TOKEN)
+            self.imap.oauth2_login(self.USERNAME, response['access_token'])
+
+    def authenticate_plain(self):
+        ## Connect, login and select the INBOX
+        self.imap = IMAPClient(self.HOST, use_uid=True)
+
+        try:
+            self.server.login(self.USERNAME, self.PASSWORD)
+        except Exception:
+            writeLog("critical", "Auth fail %s" % (self.USERNAME))
+            self.server = False
+            return
 
         folder = "INBOX"
 
@@ -135,4 +157,3 @@ class Monitor():
         self.QUEUE = EmailQueue(self.imap, m, full_when, folder)
         self.onCustom = action
         writeLog('info', 'MURMUR: %s the onCustom has been successfully installed' % (self.USERNAME))
-
