@@ -56,10 +56,10 @@ class Monitor():
         self.imap = IMAPClient(self.HOST, use_uid=True)
 
         try:
-            self.server.login(self.USERNAME, self.PASSWORD)
+            self.imap.login(self.USERNAME, self.PASSWORD)
         except Exception:
             writeLog("critical", "Auth fail %s" % (self.USERNAME))
-            self.server = False
+            self.imap = False
             return
 
         folder = "INBOX"
