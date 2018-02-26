@@ -6,7 +6,7 @@ from string import Template
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-
+from Oauth2 import *
 
 
 def get_contacts(filename):
@@ -33,11 +33,19 @@ def read_template(filename):
         template_file_content = template_file.read()
     return Template(template_file_content)
 
-def send_message(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subject='', content='Hello Murmur'): 
+def send_message(destination, sender=MY_ADDRESS, subject='', content='', access_token='', password=''): 
     # set up the SMTP server
     s = smtplib.SMTP(host='smtp.gmail.com', port=587)
-    s.starttls()
-    s.login(MY_ADDRESS, PASSWORD)
+
+    url = "https://mail.google.com/mail/b/%s/smtp/" % (sender)
+    if access_token:
+        # conn.authenticate(url, consumer, token)
+        o = Oauth2()
+        o.TestSmtpAuthentication(s, sender,
+            o.GenerateOAuth2String(sender, access_token,
+                                 base64_encode=True))
+    else:
+        s.login(sender, password)
 
     names = [sender]
     emails = [destination]
@@ -47,14 +55,14 @@ def send_message(sender=MY_ADDRESS, destination='kixlab.rally@gmail.com', subjec
         msg = MIMEMultipart()       # create a message
 
         # setup the parameters of the message
-        msg['From']=sender
+        # msg['From']=sender
         msg['To']=destination
         msg['Subject']=subject
 
         # todo change with original sender
         msg.add_header('reply-to', "asdf" + ' <' + "test@mit.edu" + '>')
-        # msg['From'] = "test@mit.edu" + ' <' + MY_ADDRESS + '>'
-        # msg.add_header('From', "qwer" + ' <' + "test@mit.edu" + '>')
+        # msg['From'] = "J. Murphy" + ' <' + MY_ADDRESS + '>'
+        msg.add_header('From', "qwer" + ' <' + "test@mit.edu" + '>')
 
         # add in the message body
         msg.attach(MIMEText(content, 'plain'))

@@ -51,9 +51,11 @@ class Monitor():
             response = self.OAUTH.generate_oauth2_token(code)
             self.REFRESH_TOKEN = response['refresh_token']
             self.imap.oauth2_login(self.USERNAME, response['access_token'])
+            self.ACCESS_TOKEN = response['access_token']
         else: 
             response = self.OAUTH.refresh_token(self.REFRESH_TOKEN)
             self.imap.oauth2_login(self.USERNAME, response['access_token'])
+            self.ACCESS_TOKEN = response['access_token']
 
         folder = "INBOX"
 
@@ -138,7 +140,11 @@ class Monitor():
         return True        
 
     def send(self, to_address, subject, content):
-        send_message(self.USERNAME, to_address, subject, content)
+        if hasattr(self, 'REFRESH_TOKEN'):
+            send_message(sender=self.USERNAME, access_token=self.ACCESS_TOKEN, destination=to_address, subject=subject, content=content) 
+        
+        else:
+            send_message(sender=self.USERNAME, password=self.PASSWORD, destination=to_address, subject=subject, content=content)
 
     def setLatestEmailID(self, inID):
         writeLog ("info", "Set Last email is " + str(inID))

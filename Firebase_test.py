@@ -111,7 +111,7 @@ def interpret(uid, cmd, isMonitor):
 
             # type checking
             if to_address is None or len(str(to_address)) == 0:
-                raise Exception('send(): args to_addr must be provided')
+                raise Exception("send(): receipient address should be specified")
 
             to_address = str(to_address)
             subject = str(subject)

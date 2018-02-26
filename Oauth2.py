@@ -37,30 +37,6 @@ class Oauth2():
   TOKEN_EXPIRED_TIME = None
 
   def __init__(self):
-    # if "refresh_token" in options:
-    #   response = RefreshToken(options.client_id, options.client_secret,
-    #                           options.refresh_token)
-    #   print ('Access Token: %s' % response['access_token'])
-    #   print ('Access Token Expiration Seconds: %s' % response['expires_in'])
-    # elif "generate_oauth2_string" in options:
-    #   RequireOptions(options, 'user', 'access_token')
-    #   print ('OAuth2 argument:\n' +
-    #          GenerateOAuth2String(options.user, options.access_token))
-    
-    # elif options.test_imap_authentication:
-    #   RequireOptions(options, 'user', 'access_token')
-    #   TestImapAuthentication(options.user,
-    #       GenerateOAuth2String(options.user, options.access_token,
-    #                            base64_encode=False))
-    # elif options.test_smtp_authentication:
-    #   RequireOptions(options, 'user', 'access_token')
-    #   TestSmtpAuthentication(options.user,
-    #       GenerateOAuth2String(options.user, options.access_token,
-    #                            base64_encode=False))
-    # else:
-    #   options_parser.print_help()
-    #   print 'Nothing to do, exiting.'
-    #   return
     pass
 
   def isExpired(self): 
@@ -89,7 +65,8 @@ class Oauth2():
     response = self.AuthorizeTokens(CLIENT_ID, CLIENT_SECRET,
                                   authorization_code)
 
-    REFRESH_TOKEN = response['refresh_token']
+    self.REFRESH_TOKEN = response['refresh_token']
+    self.ACCESS_TOKEN = response['access_token']
     self.setExpiredTime( datetime.now() + timedelta(seconds=response['expires_in'] - 5) )
 
     print ('Refresh Token: %s' % response['refresh_token'])
@@ -208,7 +185,7 @@ class Oauth2():
     """
     auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, access_token)
     if base64_encode:
-      auth_string = base64.b64encode(auth_string)
+      auth_string = base64.b64encode(auth_string.encode('ascii')).decode('ascii')
     return auth_string
 
 
@@ -227,18 +204,19 @@ class Oauth2():
     imap_conn.select('INBOX')
 
 
-  def TestSmtpAuthentication(self, user, auth_string):
+
+  def TestSmtpAuthentication(self, smtp_conn, user, auth_string):
     """Authenticates to SMTP with the given auth_string.
     Args:
       user: The Gmail username (full email address)
       auth_string: A valid OAuth2 string, not base64-encoded, as returned by
           GenerateOAuth2String.
     """
-    print
-    smtp_conn = smtplib.SMTP('smtp.gmail.com', 587)
+    
+    print ("")
     smtp_conn.set_debuglevel(True)
-    smtp_conn.ehlo('test')
+    smtp_conn.ehlo(CLIENT_ID)
     smtp_conn.starttls()
-    smtp_conn.docmd('AUTH', 'XOAUTH2 ' + base64.b64encode(auth_string))
+    smtp_conn.docmd('AUTH', 'XOAUTH2 ' + auth_string)
 
   
