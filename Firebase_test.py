@@ -101,9 +101,7 @@ def interpret(uid, cmd, isMonitor):
             data = {"type": "error", "content": logstr}
             pushMessage(["messages", uid], data)
 
-            # reauthenticate
-            writeLog("info", "disconnect imap . Try reauthenticate \n", u.monitor.USERNAME)
-            renew()            
+                     
 
         def search(search_creteria):
             u.monitor.imap 
@@ -130,18 +128,18 @@ def interpret(uid, cmd, isMonitor):
 
             messages.mark_read(read, messages.get_IDs())
 
-        def onArrive(action, folders):
+        def onArrive(action):
             writeLog("info", "Request for onArrive")
 
-            u.monitor.installOnArrive(action, folders)
+            u.monitor.installOnArrive(action)
             inbox[uid]["onArrive_func"] = action
 
             print ("Your onArrive is successfully launched")
 
-        def onCustom(action, cond, folders):
+        def onCustom(action, cond):
             writeLog("info", "Request for onCustom")
 
-            u.monitor.installOnCustom(action, cond, folders)
+            u.monitor.installOnCustom(action, cond)
             inbox[uid]["onCustom_func"] = action
 
             print ("Your onCustom is successfully launched")
@@ -199,8 +197,8 @@ def interpret(uid, cmd, isMonitor):
             else:
                 raise Exception('repeat(): args minutes|seconds|hours has to be a number')
 
-            if interval < 10:
-                raise Exception('repeat(): interval is too short! Please set larger than 10 sec')
+            if interval < 60:
+                raise Exception('repeat(): interval is too short! Please set larger than 1 min')
 
             now = datetime.now()
             target_time = now + timedelta(seconds = interval)
@@ -254,37 +252,38 @@ def interpret(uid, cmd, isMonitor):
                         with stdoutIO() as monitor_s:
                             u.monitor.imap.idle_done()
 
-                            # writeLog('info', "MURMUR: a new email has arrived || a user checks an email")
                             newID = u.monitor.fetchLatestEmailID()
 
                             # new mail
-                            if u.monitor.getLatestEmailID() != newID: 
-                                # writeLog('info', 'MURMUR: a new email has arrived', u.monitor.USERNAME)
-                                print ('MURMUR: a new email has arrived', u.monitor.USERNAME)
+                            if u.monitor.getLatestEmailID() < newID: 
+                                while u.monitor.getLatestEmailID() < newID:
+                                    nextEmail_id = u.monitor.getLatestEmailID() + 1
+                                    writeLog('info', 'MURMUR: a new email has arrived ' + str(nextEmail_id), u.monitor.USERNAME)
+                                    print ('MURMUR: a new email has arrived')
 
-                                # Increment newest email ID
-                                u.monitor.setLatestEmailID( newID )
+                                    # Increment newest email ID
+                                    u.monitor.setLatestEmailID( nextEmail_id )
 
-                                # print "UID %s:*" % str(self.getLatestEmailID() + 1)
-                                result = u.monitor.search( "UID %s:*" % str(u.monitor.getLatestEmailID() + 1) )
-                                # response = self.imap.fetch(result, ['FLAGS', 'BODY[HEADER]'])
-                                response = u.monitor.imap.fetch(result, ['FLAGS'])
-
-                                # for msgid, data in response.items():
-                                #     print('   ID %d: flags=%s' % (msgid,
-                                #                                             data[b'FLAGS']))
-                                # print ""
+                                    # for msgid, data in response.items():
+                                    #     print('   ID %d: flags=%s' % (msgid,
+                                    #                                             data[b'FLAGS']))
+                                    # print ""
 
 
-                                if inbox[uid]["monitor"].arrive:
-                                    writeLog ("info", "onArrive triggered")
-                                    inbox[uid]["monitor"].arrive["action"]( Mmail(inbox[uid]["monitor"].imap), "UID " + newID ) # do defined action
-                                    
-                                if inbox[uid]["monitor"].custom:
-                                    writeLog ("info","onCustom triggered")
-
-                                    if not inbox[uid]["monitor"].custom["queue"].push(newID): # do defined action
-                                        inbox[uid]["monitor"].custom["action"]( inbox[uid]["monitor"].custom["queue"].getMmail() ) # do defined action
+                                    if inbox[uid]["monitor"].arrive:
+                                        try: 
+                                            writeLog ("info", "onArrive triggered")
+                                            inbox[uid]["monitor"].arrive["action"]( Mmail(inbox[uid]["monitor"].imap, "UID " + str(nextEmail_id)) ) # do defined action
+                                        except Exception as e:
+                                            catch_exception(e)
+                                        
+                                    if inbox[uid]["monitor"].custom:
+                                        try:                                        
+                                            if not inbox[uid]["monitor"].custom["queue"].push(nextEmail_id): # do defined action
+                                                writeLog ("info","onCustom triggered")
+                                                inbox[uid]["monitor"].custom["action"]( inbox[uid]["monitor"].custom["queue"].getMmail() ) # do defined action
+                                        except Exception as e:
+                                            catch_exception(e)
 
 
                                 data = {"type": "info", "content": monitor_s.getvalue()}
@@ -326,7 +325,11 @@ def interpret(uid, cmd, isMonitor):
             except Exception as e:
                 catch_exception(e)
 
-            
+                # reauthenticate
+                writeLog("info", "disconnect imap . Try reauthenticate \n", u.monitor.USERNAME)
+                renew()   
+
+                               
         else: # code execution
             try: 
                 if "action" in cmd and hasattr(cmd["action"], '__call__'): #repeat, onTime

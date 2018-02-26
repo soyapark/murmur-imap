@@ -76,8 +76,7 @@ class Oauth2():
     TOKEN_EXPIRED_TIME = inTime
 
   def refresh_token(self, refresh_token):
-    response = self.RefreshToken(CLIENT_ID, CLIENT_SECRET,
-                            refresh_token)
+    response = self.RefreshToken(refresh_token)
 
     # self.setExpiredTime( datetime.now() + timedelta(seconds=response['expires_in'] - 5) )
 

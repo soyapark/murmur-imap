@@ -22,7 +22,7 @@ class Monitor():
         # self.imap = imap
         self.NEWEST_EMAIL_ID = -1
         
-        self.arrival = '' # {id: ~, action: ~}
+        self.arrive = '' # {id: ~, action: ~}
         self.custom = '' # {id" ~, action: ~, cond: ~}
         self.time = '' # {id: ~, action: ~, time: ~}
         self.repeat = '' # {id: ~, action: ~, interval: ~}
@@ -87,9 +87,9 @@ class Monitor():
     def fetchLatestEmailID(self):
         # Retrieve and process all unread messages. Should errors occur due
         # to loss of connection, attempt restablishing connection 
-        writeLog ("info", "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
-        result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 0]) + 1))
-        # print ("hello world")
+        writeLog ("info", "fetch new ", "UID %s:*" % str(max([self.getLatestEmailID(), 1])))
+        result = self.search("UID %s:*" % str(max([self.getLatestEmailID(), 1])))
+
         response = self.imap.fetch(result, ['FLAGS'])
         # print ("welkjfsld" + response)
         return max(msgid for msgid, v in response.items()) if response else self.getLatestEmailID()
@@ -148,15 +148,15 @@ class Monitor():
         return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
 
     def installOnArrive(self, action):
-        self.arrival = {"id": self.generate_random_ID(), "action": action}
+        self.arrive = {"id": self.generate_random_ID(), "action": action}
         
         writeLog('info', 'MURMUR: %s the onArrive has been successfully installed' % (self.USERNAME))
         
-    def installOnCustom(self, action, full_when, folder):
+    def installOnCustom(self, action, full_when):
         incoming_emails = "UID %s:*" % str(max(self.getLatestEmailID() +1, 1))
         m = Mmail(self.imap, incoming_emails)
 
-        self.custom = {"id": self.generate_random_ID(), "action": action, "cond": full_when, "queue": EmailQueue(self.imap, m, full_when, folder)}
+        self.custom = {"id": self.generate_random_ID(), "action": action, "cond": full_when, "queue": EmailQueue(self.imap, m, full_when)}
         writeLog('info', 'MURMUR: %s the onCustom has been successfully installed' % (self.USERNAME))
 
     def installOnTime(self, action, target_time, interval):
