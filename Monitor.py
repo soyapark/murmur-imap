@@ -44,7 +44,7 @@ class Monitor():
     def authenticate_oauth_pre(self):
         return self.OAUTH.GeneratePermissionUrl()
 
-    def authenticate_oauth(self, code):
+    def authenticate_oauth(self, code=None):
         self.imap = IMAPClient(self.HOST, use_uid=True)
 
         if not hasattr(self, 'REFRESH_TOKEN'):
