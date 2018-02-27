@@ -5,5 +5,6 @@ Account.py
 MultiUser.py
 Test.py
 cert/murmur-firebase.json
+cert/murmur-dev-firebase.json
 imap_monitor.log
 test/yahoo_auth.py
