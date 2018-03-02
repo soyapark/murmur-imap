@@ -1,6 +1,5 @@
-from Auth import Auth
 from threading import Event, Thread
-from Monitor import *
+
 import sys
 import traceback
 try:
@@ -8,7 +7,6 @@ try:
 except ImportError:
     import io
 import contextlib
-from Log import *
 
 from imapclient import IMAPClient
 from SMTP import * 
@@ -23,6 +21,9 @@ import calendar
 import sched, time
 from queue import * 
 
+from Auth import Auth
+from Log import *
+from Monitor import *
 from Conf import *
 from Auth import *
 from EmailQueue import * 
