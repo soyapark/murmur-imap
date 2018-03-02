@@ -9,7 +9,6 @@ except ImportError:
 import contextlib
 
 from imapclient import IMAPClient
-from SMTP import * 
 
 import os.path as path
 import traceback
@@ -25,7 +24,7 @@ from Auth import Auth
 from Log import *
 from Monitor import *
 from Conf import *
-from Auth import *
+from SMTP import * 
 from EmailQueue import * 
 from Cleanup import *
 
